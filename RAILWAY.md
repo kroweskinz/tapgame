@@ -35,7 +35,17 @@
 `Postgres connecting to host: postgres.railway.internal`  
 (не `127.0.0.1`).
 
-### Домен открывается, но «не работает»
+### Build Failed: `ENV names can not be blank`
+
+В Variables сервиса есть переменная **с пустым именем** (или пустая строка вместо ключа).
+
+1. Сервис приложения → **Variables**
+2. Удали любые переменные без имени / с пустым key
+3. `DATABASE_URL` должен быть только reference: `${{Postgres.DATABASE_URL}}`
+4. Redeploy
+
+В репо теперь явный `Dockerfile`, чтобы сборка была стабильнее.
+
 
 1. Домен должен висеть на сервисе **приложения** (Node), **не** на Postgres  
 2. Открой `https://твой-домен/` — игра  
