@@ -902,7 +902,7 @@
     updateHUD();
   }
 
-  document.querySelectorAll(".dock-btn").forEach((btn) => {
+  document.querySelectorAll(".dock-btn[data-panel]").forEach((btn) => {
     btn.addEventListener("pointerup", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -948,6 +948,19 @@
       if (name) {
         el.hint.textContent = `${name}, тапай по экрану — подойди ближе и получи CUM`;
       }
+    }
+
+    if (window.CumDonate) {
+      window.CumDonate.init({
+        onGrant(cum) {
+          state.balance += cum;
+          state.lifetime += cum;
+          if (window.TapTelegram) window.TapTelegram.haptic("meet");
+          showToast(`Донат получен! +${formatNum(cum)} CUM`);
+          updateHUD();
+          save();
+        },
+      });
     }
 
     el.prestigeReq.textContent = formatNum(PRESTIGE_REQ);

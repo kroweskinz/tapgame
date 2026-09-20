@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f2418" />
+  <title>Оплата CUM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Russo+One&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c1f14;
+      --card: rgba(12, 28, 18, 0.95);
+      --gold: #f0c14b;
+      --cream: #f4efe4;
+      --tbank: #ffdd2d;
+      --sber: #21a038;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      font-family: Nunito, system-ui, sans-serif;
+      background: radial-gradient(ellipse at 50% 0%, #1e3d2a, var(--bg));
+      color: var(--cream);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+    .card {
+      width: min(420px, 100%);
+      background: var(--card);
+      border: 1px solid rgba(107, 191, 106, 0.25);
+      border-radius: 20px;
+      padding: 22px 18px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.4);
+    }
+    h1 {
+      font-family: "Russo One", sans-serif;
+      font-size: 1.35rem;
+      font-weight: 400;
+      margin: 0 0 8px;
+      color: var(--gold);
+    }
+    .sub { opacity: .75; font-size: .9rem; margin: 0 0 18px; line-height: 1.4; }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0;
+      border-top: 1px solid rgba(255,255,255,.08);
+      font-weight: 800;
+    }
+    .bank {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 14px 0 18px;
+      font-weight: 900;
+    }
+    .bank svg { width: 36px; height: 36px; border-radius: 10px; }
+    .actions { display: flex; flex-direction: column; gap: 10px; }
+    button, a.btn {
+      appearance: none;
+      border: none;
+      border-radius: 14px;
+      padding: 14px 16px;
+      font: inherit;
+      font-weight: 900;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .pay {
+      background: linear-gradient(180deg, #ffe08a, var(--gold));
+      color: #2a1810;
+      box-shadow: 0 4px 0 #b8862a;
+    }
+    .demo {
+      background: rgba(255,255,255,.08);
+      color: var(--cream);
+      border: 1px solid rgba(255,255,255,.12);
+    }
+    .back {
+      background: transparent;
+      color: rgba(244,239,228,.7);
+      font-size: .85rem;
+    }
+    .err { color: #ff8a7a; font-weight: 800; }
+    .hint { font-size: .75rem; opacity: .55; margin-top: 12px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <h1>Оплата доната</h1>
+    <p class="sub" id="sub">Загрузка заказа…</p>
+  </div>
+  <script src="payment-config.js"></script>
+  <script>
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const orderId = params.get("order");
+      const raw = orderId ? sessionStorage.getItem("cum-donate-order:" + orderId) : null;
+      const card = document.getElementById("card");
+      const cfg = window.CUM_PAYMENT || { demoMode: true };
+
+      if (!raw) {
+        card.innerHTML = '<h1>Заказ не найден</h1><p class="err">Вернись в игру и выбери пакет заново.</p><div class="actions"><a class="back btn" href="index.html">В игру</a></div>';
+        return;
+      }
+
+      const order = JSON.parse(raw);
+      const returnUrl = new URL("index.html", location.href);
+      returnUrl.searchParams.set("donate", "success");
+      returnUrl.searchParams.set("order", order.id);
+
+      const bankName = order.bank === "sber" ? "Сбер" : "Т‑Банк";
+      const bankUrlTemplate = order.bank === "sber" ? cfg.sberUrl : cfg.tbankUrl;
+      const payUrl = bankUrlTemplate
+        ? bankUrlTemplate
+            .replaceAll("{amount}", String(order.price))
+            .replaceAll("{orderId}", order.id)
+            .replaceAll("{cum}", String(order.cum))
+            .replaceAll("{returnUrl}", encodeURIComponent(returnUrl.href))
+        : "";
+
+      const icon =
+        order.bank === "sber"
+          ? '<svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="12" fill="#21a038"/><path fill="#fff" d="M14 30c6-8 14-12 20-13-2 6-7 13-14 18-3 0-6-2-6-5z"/><circle cx="33" cy="15" r="4" fill="#fff"/></svg>'
+          : '<svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="12" fill="#ffdd2d"/><text x="24" y="30" text-anchor="middle" font-size="18" font-weight="900" font-family="Arial,sans-serif" fill="#333">TB</text></svg>';
+
+      card.innerHTML = `
+        <h1>Оплата доната</h1>
+        <p class="sub">После оплаты тебя вернёт в игру и начислит CUM.</p>
+        <div class="bank">${icon}<span>${bankName}</span></div>
+        <div class="row"><span>Пакет</span><span>${order.cum.toLocaleString("ru-RU")} CUM</span></div>
+        <div class="row"><span>К оплате</span><span>${order.price} ₽</span></div>
+        <div class="actions" style="margin-top:16px">
+          ${payUrl ? `<a class="pay btn" id="go-bank" href="${payUrl}" rel="noopener">Перейти к оплате</a>` : ""}
+          ${cfg.demoMode || !payUrl ? `<button type="button" class="demo" id="demo-pay">${payUrl ? "Я оплатил — вернуться в игру" : "Оплатить (тест) и вернуться"}</button>` : ""}
+          <a class="back btn" href="index.html">Отмена</a>
+        </div>
+        <p class="hint">${payUrl ? "В личном кабинете банка укажи Return URL на эту игру с параметрами donate=success." : "Ссылки банка ещё не заданы в payment-config.js — сейчас тестовый режим начисления."}</p>
+      `;
+
+      const demoBtn = document.getElementById("demo-pay");
+      if (demoBtn) {
+        demoBtn.addEventListener("click", () => {
+          order.status = "paid";
+          order.paidAt = Date.now();
+          sessionStorage.setItem("cum-donate-order:" + order.id, JSON.stringify(order));
+          location.href = returnUrl.href;
+        });
+      }
+
+      const goBank = document.getElementById("go-bank");
+      if (goBank && window.Telegram && Telegram.WebApp && Telegram.WebApp.openLink) {
+        goBank.addEventListener("click", (e) => {
+          e.preventDefault();
+          order.status = "redirected";
+          sessionStorage.setItem("cum-donate-order:" + order.id, JSON.stringify(order));
+          Telegram.WebApp.openLink(payUrl);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
