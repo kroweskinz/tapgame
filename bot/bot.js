@@ -4,7 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const TelegramBot = require("node-telegram-bot-api");
 const { validateInitData } = require("./tg-auth");
-const { migrate } = require("./db");
+const { migrate, resolveDatabaseUrl } = require("./db");
 const {
   upsertPlayer,
   getTop,
@@ -22,8 +22,14 @@ if (!token) {
   console.error("Укажи BOT_TOKEN");
   process.exit(1);
 }
-if (!process.env.DATABASE_URL) {
-  console.error("Укажи DATABASE_URL (Railway Postgres)");
+
+const dbUrl = resolveDatabaseUrl();
+if (!dbUrl) {
+  console.error(
+    "Нет DATABASE_URL. В Railway у сервиса приложения добавь:\n" +
+      "DATABASE_URL = ${{Postgres.DATABASE_URL}}\n" +
+      "(Add Variable → Variable Reference → Postgres → DATABASE_URL)"
+  );
   process.exit(1);
 }
 
