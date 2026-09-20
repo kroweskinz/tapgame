@@ -9,16 +9,41 @@
     return String(cfg().leaderboardApi || "").replace(/\/$/, "");
   }
 
+  let resolvedApi = null;
+
+  async function resolveApiBase() {
+    if (resolvedApi !== null) return resolvedApi;
+    const configured = apiBase();
+    if (configured) {
+      resolvedApi = configured;
+      return resolvedApi;
+    }
+    // Same-origin Railway monolith
+    try {
+      const res = await fetch(`${location.origin}/api/health`, { cache: "no-store" });
+      if (res.ok) {
+        resolvedApi = location.origin;
+        return resolvedApi;
+      }
+    } catch (_) {
+      /* not hosted with API */
+    }
+    resolvedApi = "";
+    return resolvedApi;
+  }
+
   function jsonbinConfig() {
     const c = cfg();
+    // Prefer Postgres API when available
     const id = String(c.jsonbinId || "").trim();
     const key = String(c.jsonbinKey || "").trim();
     if (!id || !key) return null;
     return { id, key };
   }
 
-  function mode() {
-    if (apiBase()) return "api";
+  async function mode() {
+    const base = await resolveApiBase();
+    if (base) return "api";
     if (jsonbinConfig()) return "jsonbin";
     return "none";
   }
@@ -118,7 +143,7 @@
     const metaEl = document.getElementById("leaderboard-meta");
     if (!listEl) return;
 
-    const m = mode();
+    const m = await mode();
     if (m === "none") {
       listEl.innerHTML = setupHintHtml();
       if (metaEl) metaEl.textContent = "";
@@ -129,7 +154,8 @@
     listEl.innerHTML = '<p class="lb-empty">Загрузка…</p>';
     try {
       if (m === "api") {
-        const res = await fetch(`${apiBase()}/api/leaderboard?limit=50`, { cache: "no-store" });
+        const base = await resolveApiBase();
+        const res = await fetch(`${base}/api/leaderboard?limit=50`, { cache: "no-store" });
         const data = await res.json();
         if (!data.ok) throw new Error("bad_response");
         cachedPlayers = sortPlayers(
@@ -144,7 +170,7 @@
       renderList();
     } catch (err) {
       listEl.innerHTML =
-        '<p class="lb-empty">Не удалось загрузить топ.<br/>Проверь jsonbinId / jsonbinKey.</p>';
+        '<p class="lb-empty">Не удалось загрузить топ.<br/>Проверь Railway API / DATABASE_URL.</p>';
       if (metaEl) metaEl.textContent = "";
     } finally {
       loading = false;
@@ -199,8 +225,9 @@
     const tg = window.Telegram && window.Telegram.WebApp;
     const initData = tg && tg.initData;
     if (!initData) return null;
+    const base = await resolveApiBase();
 
-    const res = await fetch(`${apiBase()}/api/leaderboard/submit`, {
+    const res = await fetch(`${base}/api/leaderboard/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -264,7 +291,7 @@
   }
 
   async function submit(stats) {
-    const m = mode();
+    const m = await mode();
     if (m === "none") return null;
 
     const now = Date.now();
@@ -279,9 +306,47 @@
     }
   }
 
+  async function cloudSave(save) {
+    const base = await resolveApiBase();
+    const tg = window.Telegram && window.Telegram.WebApp;
+    if (!base || !tg || !tg.initData) return false;
+    try {
+      const res = await fetch(`${base}/api/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ initData: tg.initData, save }),
+      });
+      const data = await res.json();
+      return !!(data && data.ok);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function cloudLoad() {
+    const base = await resolveApiBase();
+    const tg = window.Telegram && window.Telegram.WebApp;
+    if (!base || !tg || !tg.initData) return null;
+    try {
+      const res = await fetch(`${base}/api/load`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ initData: tg.initData }),
+      });
+      const data = await res.json();
+      if (data && data.ok) return data.data;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   window.CumLeaderboard = {
     refresh: fetchTop,
     submit,
+    cloudSave,
+    cloudLoad,
+    resolveApiBase,
     isLoading: () => loading,
     mode,
   };

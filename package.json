@@ -1,17 +1,22 @@
 {
-  "name": "cum-tap-telegram-bot",
-  "version": "1.0.0",
+  "name": "cum-tap",
+  "version": "1.1.0",
   "private": true,
-  "description": "Telegram bot + leaderboard API for CUM Tap Mini App",
+  "description": "CUM Tap Mini App — Railway + Postgres + Telegram bot",
   "main": "bot/bot.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "bot": "node bot/bot.js",
-    "start": "node bot/bot.js"
+    "start": "node bot/bot.js",
+    "dev": "node bot/bot.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "node-telegram-bot-api": "^0.66.0"
+    "node-telegram-bot-api": "^0.66.0",
+    "pg": "^8.23.0"
   }
 }

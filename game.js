@@ -799,12 +799,45 @@
     save();
   }
 
+  let cloudSaveTimer = null;
   function save() {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(state));
     } catch (_) {
       /* ignore quota */
     }
+    if (window.CumLeaderboard && window.CumLeaderboard.cloudSave) {
+      clearTimeout(cloudSaveTimer);
+      cloudSaveTimer = setTimeout(() => {
+        window.CumLeaderboard.cloudSave(state);
+      }, 1500);
+    }
+  }
+
+  function applyCloudSave(remote) {
+    if (!remote || !remote.save || typeof remote.save !== "object") return false;
+    const remoteLifetime = Number(remote.save.lifetime) || 0;
+    const localLifetime = Number(state.lifetime) || 0;
+    // Prefer richer progress
+    if (remoteLifetime < localLifetime) return false;
+    const merged = { ...defaultState(), ...remote.save };
+    merged.levels = { ...defaultState().levels, ...(remote.save.levels || {}) };
+    merged.achievements = remote.save.achievements || state.achievements || {};
+    const baseStats = window.CumAchievements
+      ? window.CumAchievements.defaultStats()
+      : {};
+    merged.achStats = {
+      ...baseStats,
+      ...(state.achStats || {}),
+      ...(remote.save.achStats || {}),
+    };
+    merged.playerLevel = Math.min(
+      MAX_LEVEL,
+      Math.max(1, Math.floor(merged.playerLevel || 1))
+    );
+    state = merged;
+    shopDirty = true;
+    return true;
   }
 
   function load() {
@@ -1034,6 +1067,18 @@
       const name = tgInfo.user.first_name || "";
       if (name) {
         el.hint.textContent = `${name}, тапай по экрану — подойди ближе и получи CUM`;
+      }
+    }
+
+    // Load cloud save from Railway Postgres when available
+    if (window.CumLeaderboard && window.CumLeaderboard.cloudLoad) {
+      try {
+        const remote = await window.CumLeaderboard.cloudLoad();
+        if (applyCloudSave(remote)) {
+          showToast("Прогресс загружен из облака");
+        }
+      } catch (_) {
+        /* offline / no api */
       }
     }
 
