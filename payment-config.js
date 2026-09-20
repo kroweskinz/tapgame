@@ -4,5 +4,5 @@ window.CUM_PAYMENT = {
   demoMode: true,
   // Шаблоны URL. Плейсхолдеры: {amount} {orderId} {cum} {returnUrl}
   tbankUrl: "",
-  sberUrl: "",
+  sberUrl: "https://www.sberbank.com/sms/pbpn?requisiteNumber=79961089332",
 };
