@@ -104,13 +104,7 @@ async function trackUserFromTg(user) {
 
 function reminderText(name) {
   const n = name || "друг";
-  const lines = [
-    `${n}, лес скучает без тебя 🌲\nЗайди в CUM Tap — натапай монет и поднимись в топе.`,
-    `${n}, пора за CUM 💰\nПара минут тапов — и баланс подрастёт. Жми «Играть»!`,
-    `${n}, твои соперники уже в топе 🏆\nОткрой игру и не отставай.`,
-    `${n}, автотап и бусты ждут ⚡\nЗагляни в CUM Tap, пока не остыл комбо-рекорд.`,
-  ];
-  return lines[Math.floor(Math.random() * lines.length)];
+  return `${n}, лес скучает без тебя и мое хранилище уже полное 🌲\nЗайди в CUM Tap — натапай монет и поднимись в топе.`;
 }
 
 async function sendReminders() {
