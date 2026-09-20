@@ -468,24 +468,22 @@
   }
 
   let shopDirty = true;
-  let lastShopSig = "";
+  let lastShopStructSig = "";
+  let shopPointerDown = false;
 
-  function shopSignature() {
-    const boostLeft = Math.max(0, state.boostUntil - Date.now());
+  function shopStructureSignature() {
     return [
-      Math.floor(state.balance),
       JSON.stringify(state.levels),
       state.tapPower,
       state.multiBonus,
-      state.step,
-      state.critChance,
+      state.step.toFixed(4),
+      state.critChance.toFixed(3),
       state.autoTaps,
       state.meetBonus,
-      state.comboWindow,
-      Math.ceil(boostLeft),
+      state.comboWindow.toFixed(2),
       state.boostLabel,
-      state.lifetime,
       state.prestige,
+      Date.now() < state.boostUntil ? "1" : "0",
     ].join("|");
   }
 
@@ -531,11 +529,16 @@
       ? `Престиж (+×0.25) → ×${(getPrestigeMult() + 0.25).toFixed(2)}`
       : `Нужно ${formatNum(PRESTIGE_REQ)} CUM за жизнь`;
 
-    const sig = shopSignature();
-    if (shopDirty || sig !== lastShopSig) {
-      lastShopSig = sig;
+    // Don't rebuild shop DOM while the user is pressing a buy button (breaks TG WebView clicks)
+    if (shopPointerDown) return;
+
+    const structSig = shopStructureSignature();
+    if (shopDirty || structSig !== lastShopStructSig) {
+      lastShopStructSig = structSig;
       shopDirty = false;
       renderShops();
+    } else {
+      refreshShopAffordability();
     }
   }
 
@@ -545,8 +548,8 @@
       const cost = upgradeCost(u, level);
       const can = state.balance >= cost;
       return `
-        <div class="shop-item">
-          <div class="title">${u.title} <span style="opacity:.55">Lv ${level}</span></div>
+        <div class="shop-item" data-upgrade="${u.id}">
+          <div class="title">${u.title} <span class="lv" style="opacity:.55">Lv ${level}</span></div>
           <div class="desc">${u.desc}</div>
           <div class="meta">${u.meta(state)}</div>
           <button type="button" class="buy-btn" data-buy="${u.id}" ${can ? "" : "disabled"}>
@@ -557,19 +560,46 @@
     }).join("");
 
     el.shopBoosts.innerHTML = BOOSTS.map((b) => {
-      const active = Date.now() < state.boostUntil && state.boostLabel.includes(b.title.split(" ")[0]);
-      const can = state.balance >= b.cost && Date.now() >= state.boostUntil;
+      const active = Date.now() < state.boostUntil;
+      const can = state.balance >= b.cost && !active;
       return `
-        <div class="shop-item">
+        <div class="shop-item" data-boost-item="${b.id}">
           <div class="title">${b.title}</div>
           <div class="desc">${b.desc}</div>
-          <div class="meta">${b.duration}с · ${active ? "активен" : "готов"}</div>
+          <div class="meta">${b.duration}с · ${active && state.boostLabel === b.title ? "активен" : "готов"}</div>
           <button type="button" class="buy-btn" data-boost="${b.id}" ${can ? "" : "disabled"}>
             ${formatNum(b.cost)} CUM
           </button>
         </div>
       `;
     }).join("");
+  }
+
+  function refreshShopAffordability() {
+    UPGRADES.forEach((u) => {
+      const level = state.levels[u.id] || 0;
+      const cost = upgradeCost(u, level);
+      const btn = el.shopUpgrades.querySelector(`[data-buy="${u.id}"]`);
+      if (!btn) return;
+      btn.disabled = state.balance < cost;
+      btn.textContent = `${formatNum(cost)} CUM`;
+      const meta = btn.parentElement && btn.parentElement.querySelector(".meta");
+      if (meta) meta.textContent = u.meta(state);
+      const lv = btn.parentElement && btn.parentElement.querySelector(".lv");
+      if (lv) lv.textContent = `Lv ${level}`;
+    });
+
+    const boostActive = Date.now() < state.boostUntil;
+    BOOSTS.forEach((b) => {
+      const btn = el.shopBoosts.querySelector(`[data-boost="${b.id}"]`);
+      if (!btn) return;
+      btn.disabled = state.balance < b.cost || boostActive;
+      btn.textContent = `${formatNum(b.cost)} CUM`;
+      const meta = btn.parentElement && btn.parentElement.querySelector(".meta");
+      if (meta) {
+        meta.textContent = `${b.duration}с · ${boostActive && state.boostLabel === b.title ? "активен" : "готов"}`;
+      }
+    });
   }
 
   function buyUpgrade(id) {
@@ -671,10 +701,15 @@
   el.stage.addEventListener(
     "pointerdown",
     (e) => {
-      if (e.target.closest(".panel, .dock, button")) return;
+      if (e.target.closest(".panel, .dock, button, .hud-top")) return;
+      // While shop is open, taps on the arena only close the panel — no earn
+      if (openPanel) {
+        e.preventDefault();
+        setPanel(openPanel);
+        return;
+      }
       e.preventDefault();
       unlockAudio();
-      if (openPanel) setPanel(openPanel);
       doTap(e.clientX, e.clientY);
       save();
     },
@@ -689,19 +724,57 @@
     if (!muted) unlockAudio();
   });
 
-  el.shopUpgrades.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-buy]");
-    if (!btn) return;
-    buyUpgrade(btn.getAttribute("data-buy"));
+  // pointerup is more reliable than click inside Telegram WebView
+  let shopPressBtn = null;
+  let shopPressY = 0;
+
+  function onShopPointerDown(e) {
+    const btn = e.target.closest(".buy-btn, .prestige-btn");
+    shopPressBtn = btn;
+    shopPressY = e.clientY;
+    shopPointerDown = !!btn;
+    e.stopPropagation();
+  }
+
+  function onShopPointerUp(e) {
+    const buy = e.target.closest("[data-buy]");
+    const boost = e.target.closest("[data-boost]");
+    const btn = buy || boost;
+    const moved = Math.abs((e.clientY || 0) - shopPressY) > 14;
+    const same = shopPressBtn && btn && shopPressBtn === btn;
+    shopPointerDown = false;
+    shopPressBtn = null;
+
+    if (!same || moved || !btn || btn.disabled) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    if (buy) buyUpgrade(buy.getAttribute("data-buy"));
+    else if (boost) buyBoost(boost.getAttribute("data-boost"));
+  }
+
+  function onShopPointerCancel() {
+    shopPointerDown = false;
+    shopPressBtn = null;
+  }
+
+  el.panel.addEventListener("pointerdown", onShopPointerDown);
+  el.panel.addEventListener("pointerup", onShopPointerUp);
+  el.panel.addEventListener("pointercancel", onShopPointerCancel);
+  el.panel.addEventListener("click", (e) => {
+    // Prevent duplicate synthetic clicks after pointerup in some WebViews
+    if (e.target.closest("[data-buy], [data-boost]")) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
   });
 
-  el.shopBoosts.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-boost]");
-    if (!btn) return;
-    buyBoost(btn.getAttribute("data-boost"));
+  el.prestigeBtn.addEventListener("pointerup", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    shopPointerDown = false;
+    doPrestige();
   });
-
-  el.prestigeBtn.addEventListener("click", doPrestige);
 
   let openPanel = null;
 
@@ -725,10 +798,14 @@
     document.querySelectorAll(".panel-section").forEach((sec) => {
       sec.hidden = sec.getAttribute("data-section") !== name;
     });
+    shopDirty = true;
+    updateHUD();
   }
 
   document.querySelectorAll(".dock-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("pointerup", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       setPanel(btn.getAttribute("data-panel"));
     });
   });
