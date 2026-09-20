@@ -118,6 +118,20 @@ async function migrate(retries = 12) {
           save_json JSONB NOT NULL DEFAULT '{}'::jsonb,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+
+        CREATE TABLE IF NOT EXISTS bot_users (
+          user_id BIGINT PRIMARY KEY,
+          chat_id BIGINT NOT NULL,
+          name TEXT NOT NULL DEFAULT 'Игрок',
+          username TEXT NOT NULL DEFAULT '',
+          notify_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          last_notified_at TIMESTAMPTZ,
+          last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE INDEX IF NOT EXISTS bot_users_notify_idx
+          ON bot_users (notify_enabled, last_notified_at);
       `);
       console.log("Postgres schema ready");
       return;

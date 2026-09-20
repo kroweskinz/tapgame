@@ -12,15 +12,23 @@ const {
   saveGame,
   loadGame,
 } = require("./leaderboard-pg");
+const {
+  upsertBotUser,
+  setNotify,
+  listNotifiableUsers,
+  markNotified,
+} = require("./users");
 
 const token = process.env.BOT_TOKEN || "";
 const gameUrl = process.env.GAME_URL;
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || "0.0.0.0";
+const NOTIFY_EVERY_MS = Number(process.env.NOTIFY_EVERY_MS || 4 * 60 * 60 * 1000);
 
 let dbReady = false;
 let dbError = null;
 let bot = null;
+let notifyTimer = null;
 
 const resolvedGameUrl = gameUrl && /^https:\/\//i.test(gameUrl) ? gameUrl : null;
 
@@ -66,6 +74,98 @@ async function initDatabase() {
   }
 }
 
+async function trackUserFromMsg(msg) {
+  if (!dbReady || !msg || !msg.from) return;
+  try {
+    await upsertBotUser({
+      userId: msg.from.id,
+      chatId: msg.chat.id,
+      name: [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ") || "Игрок",
+      username: msg.from.username || "",
+    });
+  } catch (err) {
+    console.error("trackUserFromMsg", err.message);
+  }
+}
+
+async function trackUserFromTg(user) {
+  if (!dbReady || !user || !user.id) return;
+  try {
+    await upsertBotUser({
+      userId: user.id,
+      chatId: user.id, // private chat id == user id
+      name: [user.first_name, user.last_name].filter(Boolean).join(" ") || "Игрок",
+      username: user.username || "",
+    });
+  } catch (err) {
+    console.error("trackUserFromTg", err.message);
+  }
+}
+
+function reminderText(name) {
+  const n = name || "друг";
+  const lines = [
+    `${n}, лес скучает без тебя 🌲\nЗайди в CUM Tap — натапай монет и поднимись в топе.`,
+    `${n}, пора за CUM 💰\nПара минут тапов — и баланс подрастёт. Жми «Играть»!`,
+    `${n}, твои соперники уже в топе 🏆\nОткрой игру и не отставай.`,
+    `${n}, автотап и бусты ждут ⚡\nЗагляни в CUM Tap, пока не остыл комбо-рекорд.`,
+  ];
+  return lines[Math.floor(Math.random() * lines.length)];
+}
+
+async function sendReminders() {
+  if (!bot || !dbReady) return;
+  let users = [];
+  try {
+    users = await listNotifiableUsers();
+  } catch (err) {
+    console.error("listNotifiableUsers", err.message);
+    return;
+  }
+  if (!users.length) {
+    console.log("Reminders: nobody to notify");
+    return;
+  }
+
+  console.log(`Reminders: sending to ${users.length} users`);
+  const okIds = [];
+  for (const u of users) {
+    try {
+      const opts = resolvedGameUrl ? playKeyboard(resolvedGameUrl) : undefined;
+      await bot.sendMessage(u.chat_id, reminderText(u.name), opts);
+      okIds.push(u.user_id);
+      // soft rate-limit ~25 msg/sec max; stay safer
+      await new Promise((r) => setTimeout(r, 50));
+    } catch (err) {
+      const code = err && err.response && err.response.statusCode;
+      // blocked / chat not found → disable notify
+      if (code === 403 || code === 400) {
+        try {
+          await setNotify(u.user_id, false);
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      console.error(`Remind fail ${u.user_id}:`, err.message);
+    }
+  }
+  try {
+    await markNotified(okIds);
+  } catch (err) {
+    console.error("markNotified", err.message);
+  }
+}
+
+function startNotifyLoop() {
+  if (notifyTimer) return;
+  // first wave after 2 minutes (not immediately on every restart flood)
+  setTimeout(() => {
+    sendReminders();
+    notifyTimer = setInterval(sendReminders, NOTIFY_EVERY_MS);
+  }, 2 * 60 * 1000);
+  console.log(`Notify loop armed: every ${Math.round(NOTIFY_EVERY_MS / 3600000)}h`);
+}
+
 function startBot() {
   if (!token) {
     console.warn("BOT_TOKEN не задан — бот выключен, сайт/API всё равно работают");
@@ -75,7 +175,8 @@ function startBot() {
 
   bot = new TelegramBot(token, { polling: true });
 
-  bot.onText(/\/start/, (msg) => {
+  bot.onText(/\/start/, async (msg) => {
+    await trackUserFromMsg(msg);
     const name = msg.from && msg.from.first_name ? msg.from.first_name : "друг";
     if (!resolvedGameUrl) {
       bot.sendMessage(
@@ -86,12 +187,13 @@ function startBot() {
     }
     bot.sendMessage(
       msg.chat.id,
-      `Привет, ${name}!\n\nCUM Tap на Railway.\nЖми кнопку, чтобы открыть игру.`,
+      `Привет, ${name}!\n\nCUM Tap на Railway.\nРаз в 4 часа пришлю напоминание зайти в игру.\nОтключить: /mute\nВключить снова: /unmute`,
       playKeyboard(resolvedGameUrl)
     );
   });
 
-  bot.onText(/\/play/, (msg) => {
+  bot.onText(/\/play/, async (msg) => {
+    await trackUserFromMsg(msg);
     if (!resolvedGameUrl) {
       bot.sendMessage(msg.chat.id, "GAME_URL не задан.");
       return;
@@ -99,7 +201,20 @@ function startBot() {
     bot.sendMessage(msg.chat.id, "Открывай игру:", playKeyboard(resolvedGameUrl));
   });
 
+  bot.onText(/\/mute/, async (msg) => {
+    await trackUserFromMsg(msg);
+    if (dbReady) await setNotify(msg.from.id, false);
+    bot.sendMessage(msg.chat.id, "Ок, напоминания выключены. Вернуть: /unmute");
+  });
+
+  bot.onText(/\/unmute/, async (msg) => {
+    await trackUserFromMsg(msg);
+    if (dbReady) await setNotify(msg.from.id, true);
+    bot.sendMessage(msg.chat.id, "Напоминания снова включены (каждые 4 часа).");
+  });
+
   bot.onText(/\/top/, async (msg) => {
+    await trackUserFromMsg(msg);
     if (!dbReady) {
       bot.sendMessage(msg.chat.id, "База ещё не готова. Проверь DATABASE_URL.");
       return;
@@ -126,6 +241,7 @@ function startBot() {
   });
 
   console.log("Telegram bot polling started");
+  startNotifyLoop();
 }
 
 function createApp() {
@@ -144,6 +260,7 @@ function createApp() {
       dbError: dbError || null,
       gameUrl: resolvedGameUrl,
       bot: Boolean(token),
+      notifyEveryHours: Math.round(NOTIFY_EVERY_MS / 3600000),
       service: "cum-tap-railway",
     });
   });
@@ -170,6 +287,7 @@ function createApp() {
         return;
       }
       const user = auth.user;
+      await trackUserFromTg(user);
       const balance = Math.max(0, Math.floor(Number(body.balance) || 0));
       const level = Math.min(100, Math.max(1, Math.floor(Number(body.level) || 1)));
       const prestige = Math.max(0, Math.floor(Number(body.prestige) || 0));
@@ -201,6 +319,7 @@ function createApp() {
         res.status(401).json({ ok: false, error: auth.error || "unauthorized" });
         return;
       }
+      await trackUserFromTg(auth.user);
       if (!body.save || typeof body.save !== "object") {
         res.status(400).json({ ok: false, error: "bad_save" });
         return;
@@ -222,6 +341,7 @@ function createApp() {
         res.status(401).json({ ok: false, error: auth.error || "unauthorized" });
         return;
       }
+      await trackUserFromTg(auth.user);
       const data = await loadGame(auth.user.id);
       res.json({ ok: true, data });
     } catch (err) {
