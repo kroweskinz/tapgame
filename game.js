@@ -907,7 +907,7 @@
 
   function leaderboardStats() {
     return {
-      lifetime: state.lifetime,
+      balance: state.balance,
       level: state.playerLevel,
       prestige: state.prestige,
     };

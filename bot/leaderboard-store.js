@@ -28,27 +28,28 @@ function writeStore(store) {
 
 function upsertPlayer(entry) {
   const store = readStore();
-  const prev = store.players[entry.userId] || {};
-  // Only raise score, never lower (anti-cheat soft)
-  const score = Math.max(Number(prev.score) || 0, Number(entry.score) || 0);
-  const lifetime = Math.max(Number(prev.lifetime) || 0, Number(entry.lifetime) || 0);
-  const level = Math.max(Number(prev.level) || 1, Number(entry.level) || 1);
-  const prestige = Math.max(Number(prev.prestige) || 0, Number(entry.prestige) || 0);
+  const balance = Math.max(0, Math.floor(Number(entry.balance != null ? entry.balance : entry.score) || 0));
+  const level = Math.min(100, Math.max(1, Math.floor(Number(entry.level) || 1)));
+  const prestige = Math.max(0, Math.floor(Number(entry.prestige) || 0));
 
   store.players[entry.userId] = {
     userId: entry.userId,
-    name: entry.name || prev.name || "Игрок",
-    username: entry.username || prev.username || "",
-    photoUrl: entry.photoUrl || prev.photoUrl || "",
-    score,
-    lifetime,
+    name: entry.name || "Игрок",
+    username: entry.username || "",
+    photoUrl: entry.photoUrl || "",
+    balance,
+    score: balance,
     level,
     prestige,
     updatedAt: Date.now(),
   };
 
-  // Prune lowest if too many
-  const list = Object.values(store.players).sort((a, b) => b.score - a.score);
+  const list = Object.values(store.players).sort((a, b) => {
+    const ba = Number(a.balance != null ? a.balance : a.score) || 0;
+    const bb = Number(b.balance != null ? b.balance : b.score) || 0;
+    if (bb !== ba) return bb - ba;
+    return (Number(b.level) || 1) - (Number(a.level) || 1);
+  });
   if (list.length > MAX_ENTRIES) {
     const keep = new Set(list.slice(0, MAX_ENTRIES).map((p) => String(p.userId)));
     store.players = Object.fromEntries(
@@ -64,12 +65,18 @@ function getTop(limit = 50) {
   const store = readStore();
   return Object.values(store.players)
     .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (b.level !== a.level) return b.level - a.level;
-      return b.lifetime - a.lifetime;
+      const ba = Number(a.balance != null ? a.balance : a.score) || 0;
+      const bb = Number(b.balance != null ? b.balance : b.score) || 0;
+      if (bb !== ba) return bb - ba;
+      return (Number(b.level) || 1) - (Number(a.level) || 1);
     })
     .slice(0, limit)
-    .map((p, i) => ({ rank: i + 1, ...p }));
+    .map((p, i) => ({
+      rank: i + 1,
+      ...p,
+      balance: Math.floor(Number(p.balance != null ? p.balance : p.score) || 0),
+      level: Math.min(100, Math.max(1, Math.floor(Number(p.level) || 1))),
+    }));
 }
 
 function getRank(userId) {

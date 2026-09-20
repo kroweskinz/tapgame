@@ -867,10 +867,25 @@ body.tg-mini-app {
   font-weight: 700;
 }
 
+.lb-score-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
 .lb-score {
   font-family: var(--font-display);
   color: var(--gold);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.lb-score-unit {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--gold-bright);
+  opacity: 0.75;
 }
 
 .lb-empty {

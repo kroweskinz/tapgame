@@ -3,11 +3,9 @@ window.CUM_CONFIG = {
   // Вариант 1: свой сервер бота (npm start)
   leaderboardApi: "",
 
-  // Вариант 2 БЕЗ сервера: JSONBin (https://jsonbin.io)
-  // Создай Bin с содержимым: {"players":{}}
-  // Вставь Bin ID и Master Key:
-  jsonbinId: "",
-  jsonbinKey: "",
+  // Вариант 2 БЕЗ сервера: JSONBin
+  jsonbinId: "6ab05115ac6210605ae3c496",
+  jsonbinKey: "$2a$10$qIjzAIiUSjPcfmrUM8Ku3e7L5tmh65XgxlgPqAFGrMxKGH4M3Kxt.",
 
   // Донат
   demoMode: true,
@@ -15,5 +13,4 @@ window.CUM_CONFIG = {
   sberUrl: "https://www.sberbank.com/sms/pbpn?requisiteNumber=79961089332",
 };
 
-// Совместимость со старым именем
 window.CUM_PAYMENT = window.CUM_CONFIG;

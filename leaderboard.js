@@ -23,7 +23,7 @@
     return "none";
   }
 
-  function formatScore(n) {
+  function formatCum(n) {
     const v = Math.floor(Number(n) || 0);
     if (v >= 1e6) return (v / 1e6).toFixed(2) + "M";
     if (v >= 1e4) return (v / 1e3).toFixed(1) + "K";
@@ -46,19 +46,22 @@
     return null;
   }
 
-  function calcScore(lifetime, level, prestige) {
-    return Math.max(0, Math.floor(lifetime || 0)) + Math.max(1, level || 1) * 500 + Math.max(0, prestige || 0) * 5000;
-  }
-
+  /** Rank by coins on balance; level is tie-breaker and shown in UI */
   function sortPlayers(map) {
     return Object.values(map || {})
       .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        if (b.level !== a.level) return b.level - a.level;
-        return b.lifetime - a.lifetime;
+        const ba = Number(a.balance != null ? a.balance : a.score) || 0;
+        const bb = Number(b.balance != null ? b.balance : b.score) || 0;
+        if (bb !== ba) return bb - ba;
+        return (Number(b.level) || 1) - (Number(a.level) || 1);
       })
       .slice(0, 50)
-      .map((p, i) => ({ rank: i + 1, ...p }));
+      .map((p, i) => ({
+        rank: i + 1,
+        ...p,
+        balance: Math.floor(Number(p.balance != null ? p.balance : p.score) || 0),
+        level: Math.min(100, Math.max(1, Math.floor(Number(p.level) || 1))),
+      }));
   }
 
   function findMe(list, userId) {
@@ -83,7 +86,6 @@
     });
     if (!res.ok) throw new Error("jsonbin_read_" + res.status);
     const data = await res.json();
-    // X-Bin-Meta false returns record directly; otherwise .record
     const record = data && data.record ? data.record : data;
     if (!record || typeof record !== "object") return { players: {} };
     if (!record.players || typeof record.players !== "object") return { players: {} };
@@ -105,12 +107,9 @@
 
   function setupHintHtml() {
     return `<p class="lb-empty">
-      Общий топ нужен общий склад данных (без своего сервера тоже ок).<br/><br/>
-      <strong>Вариант без сервера (JSONBin, 2 минуты):</strong><br/>
-      1) Зайди на <a href="https://jsonbin.io" target="_blank" rel="noopener">jsonbin.io</a>, создай Bin с телом <code>{"players":{}}</code><br/>
-      2) Вставь в <code>payment-config.js</code>:<br/>
-      <code>jsonbinId</code> и <code>jsonbinKey</code> (Master Key)<br/><br/>
-      Либо укажи <code>leaderboardApi</code>, если крутишь бота с API.
+      Общий топ нужен общий склад данных.<br/><br/>
+      Укажи в <code>payment-config.js</code> поля <code>jsonbinId</code> и <code>jsonbinKey</code>
+      или <code>leaderboardApi</code>.
     </p>`;
   }
 
@@ -133,17 +132,19 @@
         const res = await fetch(`${apiBase()}/api/leaderboard?limit=50`, { cache: "no-store" });
         const data = await res.json();
         if (!data.ok) throw new Error("bad_response");
-        cachedPlayers = data.players || [];
+        cachedPlayers = sortPlayers(
+          Object.fromEntries((data.players || []).map((p) => [String(p.userId), p]))
+        );
       } else {
         const record = await jsonbinRead();
         cachedPlayers = sortPlayers(record.players);
-        const user = getTgUser();
-        myRank = findMe(cachedPlayers, user && user.id);
       }
+      const user = getTgUser();
+      myRank = findMe(cachedPlayers, user && user.id);
       renderList();
     } catch (err) {
       listEl.innerHTML =
-        '<p class="lb-empty">Не удалось загрузить топ.<br/>Проверь jsonbinId / jsonbinKey или leaderboardApi.</p>';
+        '<p class="lb-empty">Не удалось загрузить топ.<br/>Проверь jsonbinId / jsonbinKey.</p>';
       if (metaEl) metaEl.textContent = "";
     } finally {
       loading = false;
@@ -165,24 +166,32 @@
       .map((p) => {
         const name = p.username ? `@${p.username}` : p.name || "Игрок";
         const medal = p.rank === 1 ? "🥇" : p.rank === 2 ? "🥈" : p.rank === 3 ? "🥉" : `#${p.rank}`;
+        const bal = Math.floor(Number(p.balance != null ? p.balance : p.score) || 0);
+        const lvl = Math.floor(Number(p.level) || 1);
         return `
           <div class="lb-row">
             <span class="lb-rank">${medal}</span>
             <div class="lb-info">
               <div class="lb-name">${escapeHtml(name)}</div>
-              <div class="lb-sub">ур. ${p.level}${p.prestige ? ` · прест. ${p.prestige}` : ""}</div>
+              <div class="lb-sub">Уровень ${lvl}</div>
             </div>
-            <span class="lb-score">${formatScore(p.score)}</span>
+            <div class="lb-score-wrap">
+              <span class="lb-score">${formatCum(bal)}</span>
+              <span class="lb-score-unit">CUM</span>
+            </div>
           </div>`;
       })
       .join("");
 
     if (metaEl) {
-      metaEl.textContent = myRank
-        ? `Ты: #${myRank.rank} · ${formatScore(myRank.score)} очков`
-        : getTgUser()
-          ? "Пока нет в топе — тапай и обнови"
-          : "Открой из Telegram, чтобы попасть в топ";
+      if (myRank) {
+        const bal = Math.floor(Number(myRank.balance != null ? myRank.balance : myRank.score) || 0);
+        metaEl.textContent = `Ты: #${myRank.rank} · ${formatCum(bal)} CUM · ур. ${myRank.level}`;
+      } else if (getTgUser()) {
+        metaEl.textContent = "Пока нет в топе — тапай и нажми «Обновить»";
+      } else {
+        metaEl.textContent = "Открой из Telegram, чтобы попасть в топ";
+      }
     }
   }
 
@@ -196,7 +205,7 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         initData,
-        lifetime: stats.lifetime || 0,
+        balance: stats.balance || 0,
         level: stats.level || 1,
         prestige: stats.prestige || 0,
       }),
@@ -213,31 +222,32 @@
     const user = getTgUser();
     if (!user) return null;
 
-    // Serialize writes to reduce lost updates
     const run = writeLock.then(async () => {
       const record = await jsonbinRead();
       const players = record.players || {};
       const id = String(user.id);
-      const prev = players[id] || {};
-      const lifetime = Math.max(Number(prev.lifetime) || 0, Math.floor(stats.lifetime || 0));
-      const level = Math.max(Number(prev.level) || 1, Math.floor(stats.level || 1));
-      const prestige = Math.max(Number(prev.prestige) || 0, Math.floor(stats.prestige || 0));
-      const score = Math.max(Number(prev.score) || 0, calcScore(lifetime, level, prestige));
+      const balance = Math.max(0, Math.floor(Number(stats.balance) || 0));
+      const level = Math.min(100, Math.max(1, Math.floor(Number(stats.level) || 1)));
+      const prestige = Math.max(0, Math.floor(Number(stats.prestige) || 0));
 
       players[id] = {
         userId: user.id,
         name: [user.first_name, user.last_name].filter(Boolean).join(" ") || "Игрок",
         username: user.username || "",
         photoUrl: user.photo_url || "",
-        lifetime,
+        balance,
+        score: balance,
         level,
         prestige,
-        score,
         updatedAt: Date.now(),
       };
 
-      // Keep top 200 by score
-      const ranked = Object.values(players).sort((a, b) => b.score - a.score);
+      const ranked = Object.values(players).sort((a, b) => {
+        const ba = Number(a.balance != null ? a.balance : a.score) || 0;
+        const bb = Number(b.balance != null ? b.balance : b.score) || 0;
+        if (bb !== ba) return bb - ba;
+        return (Number(b.level) || 1) - (Number(a.level) || 1);
+      });
       const keep = {};
       ranked.slice(0, 200).forEach((p) => {
         keep[String(p.userId)] = p;
@@ -258,7 +268,7 @@
     if (m === "none") return null;
 
     const now = Date.now();
-    if (now - lastSubmitAt < 8000) return myRank;
+    if (now - lastSubmitAt < 5000) return myRank;
     lastSubmitAt = now;
 
     try {

@@ -47,7 +47,8 @@ bot.onText(/\/top/, async (msg) => {
   }
   const lines = top.map((p) => {
     const who = p.username ? `@${p.username}` : p.name;
-    return `${p.rank}. ${who} — ур.${p.level}, ${Math.floor(p.score)} очков`;
+    const bal = Math.floor(Number(p.balance != null ? p.balance : p.score) || 0);
+    return `${p.rank}. ${who} — ${bal} CUM · ур.${p.level}`;
   });
   bot.sendMessage(msg.chat.id, `🏆 Топ игроков\n\n${lines.join("\n")}`);
 });
@@ -79,21 +80,19 @@ app.post("/api/leaderboard/submit", (req, res) => {
   }
 
   const user = auth.user;
-  const lifetime = Math.max(0, Math.floor(Number(body.lifetime) || 0));
+  const balance = Math.max(0, Math.floor(Number(body.balance) || 0));
   const level = Math.min(100, Math.max(1, Math.floor(Number(body.level) || 1)));
   const prestige = Math.max(0, Math.floor(Number(body.prestige) || 0));
-  // Score: lifetime CUM + level weight + prestige weight
-  const score = lifetime + level * 500 + prestige * 5000;
 
   const saved = upsertPlayer({
     userId: user.id,
     name: [user.first_name, user.last_name].filter(Boolean).join(" ") || "Игрок",
     username: user.username || "",
     photoUrl: user.photo_url || "",
-    lifetime,
+    balance,
+    score: balance,
     level,
     prestige,
-    score,
   });
 
   const me = getRank(user.id);
