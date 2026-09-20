@@ -5,9 +5,9 @@
   const CLAIMED_KEY = "cum-donate-claimed";
 
   const PACKS = [
-    { id: "p1000", cum: 1000, price: 49, label: "1 000 CUM" },
-    { id: "p5000", cum: 5000, price: 149, label: "5 000 CUM" },
-    { id: "p10000", cum: 10000, price: 249, label: "10 000 CUM" },
+    { id: "p100k", cum: 100000, price: 49, label: "100 000 CUM" },
+    { id: "p1m", cum: 1000000, price: 99, label: "1 000 000 CUM" },
+    { id: "p10m", cum: 10000000, price: 149, label: "10 000 000 CUM" },
   ];
 
   const BANKS = [

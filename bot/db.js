@@ -132,6 +132,28 @@ async function migrate(retries = 12) {
 
         CREATE INDEX IF NOT EXISTS bot_users_notify_idx
           ON bot_users (notify_enabled, last_notified_at);
+
+        CREATE TABLE IF NOT EXISTS leaderboard_events (
+          id SERIAL PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT NOT NULL DEFAULT '',
+          icon TEXT NOT NULL DEFAULT '🏆',
+          theme TEXT NOT NULL DEFAULT 'gold',
+          prize1_icon TEXT NOT NULL DEFAULT '🥇',
+          prize1_text TEXT NOT NULL DEFAULT '',
+          prize2_icon TEXT NOT NULL DEFAULT '🥈',
+          prize2_text TEXT NOT NULL DEFAULT '',
+          prize3_icon TEXT NOT NULL DEFAULT '🥉',
+          prize3_text TEXT NOT NULL DEFAULT '',
+          starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          ends_at TIMESTAMPTZ NOT NULL,
+          active BOOLEAN NOT NULL DEFAULT TRUE,
+          created_by BIGINT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE INDEX IF NOT EXISTS leaderboard_events_active_idx
+          ON leaderboard_events (active, ends_at);
       `);
       console.log("Postgres schema ready");
       return;

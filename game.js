@@ -180,17 +180,25 @@
       playSeconds: 0,
       nightTap: false,
       morningTap: false,
+      nightTaps: 0,
+      morningTaps: 0,
       mutedOnce: false,
       openedLeaderboard: false,
       openedAchievements: false,
       sessionStart: Date.now(),
       sessionLifetimeAt500s: 0,
+      sessionLifeAt5kSec: 0,
+      sessionLifeAt100mSec: 0,
       peakCps: 0,
     };
   }
   if (!state.achievements) state.achievements = {};
   state.achStats.sessionStart = Date.now();
   state.achStats.sessionLifetimeAt500s = state.achStats.sessionLifetimeAt500s || 0;
+  state.achStats.sessionLifeAt5kSec = state.achStats.sessionLifeAt5kSec || 0;
+  state.achStats.sessionLifeAt100mSec = state.achStats.sessionLifeAt100mSec || 0;
+  state.achStats.nightTaps = state.achStats.nightTaps || 0;
+  state.achStats.morningTaps = state.achStats.morningTaps || 0;
   let autoAcc = 0;
   let hintHidden = false;
   let muted = localStorage.getItem(MUTE_KEY) === "1";
@@ -319,6 +327,7 @@
   function formatNum(n) {
     if (!Number.isFinite(n)) return "0";
     const abs = Math.abs(n);
+    if (abs >= 1e12) return (n / 1e12).toFixed(2) + "T";
     if (abs >= 1e9) return (n / 1e9).toFixed(2) + "B";
     if (abs >= 1e6) return (n / 1e6).toFixed(2) + "M";
     if (abs >= 1e4) return (n / 1e3).toFixed(1) + "K";
@@ -468,8 +477,14 @@
     if (!fromAuto) {
       if (state.combo > state.achStats.maxCombo) state.achStats.maxCombo = state.combo;
       const hour = new Date().getHours();
-      if (hour >= 0 && hour < 5) state.achStats.nightTap = true;
-      if (hour >= 5 && hour < 8) state.achStats.morningTap = true;
+      if (hour >= 0 && hour < 5) {
+        state.achStats.nightTap = true;
+        state.achStats.nightTaps = (state.achStats.nightTaps || 0) + 1;
+      }
+      if (hour >= 5 && hour < 8) {
+        state.achStats.morningTap = true;
+        state.achStats.morningTaps = (state.achStats.morningTaps || 0) + 1;
+      }
     }
 
     const mult = getMultiplier();
@@ -481,6 +496,18 @@
 
     if (state.lifetime >= 500 && !state.achStats.sessionLifetimeAt500s) {
       state.achStats.sessionLifetimeAt500s = Math.max(
+        1,
+        Math.floor((Date.now() - (state.achStats.sessionStart || Date.now())) / 1000)
+      );
+    }
+    if (state.lifetime >= 5000 && !state.achStats.sessionLifeAt5kSec) {
+      state.achStats.sessionLifeAt5kSec = Math.max(
+        1,
+        Math.floor((Date.now() - (state.achStats.sessionStart || Date.now())) / 1000)
+      );
+    }
+    if (state.lifetime >= 100000000 && !state.achStats.sessionLifeAt100mSec) {
+      state.achStats.sessionLifeAt100mSec = Math.max(
         1,
         Math.floor((Date.now() - (state.achStats.sessionStart || Date.now())) / 1000)
       );
@@ -1005,6 +1032,7 @@
       if (state.achStats) state.achStats.openedLeaderboard = true;
       if (window.CumAchievements) window.CumAchievements.tick();
       syncLeaderboard(true);
+      if (window.TapEvents) window.TapEvents.onPanelOpen();
     }
   }
 
@@ -1136,6 +1164,7 @@
         e.preventDefault();
         e.stopPropagation();
         syncLeaderboard(true);
+        if (window.TapEvents) window.TapEvents.refresh();
       });
     }
 

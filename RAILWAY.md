@@ -6,6 +6,7 @@
 
 - `players` — лидерборд (баланс CUM, уровень, престиж)
 - `game_saves` — облачный прогресс по Telegram `user_id`
+- `leaderboard_events` — события топа (таймер, призы, оформление)
 
 ## Деплой на Railway (UI)
 
@@ -18,8 +19,16 @@
    - `BOT_TOKEN` = токен от BotFather
    - `GAME_URL` = публичный HTTPS домен приложения
    - `HOST` = `0.0.0.0`
+   - `ADMIN_TELEGRAM_IDS` = твой Telegram user id (можно несколько через запятую) — для админки событий в топе
 4. **Settings → Networking → Generate Domain**
 5. Обнови `GAME_URL` этим доменом → **Redeploy**
+
+### Админка событий топа
+
+1. Узнай свой Telegram ID (например через `@userinfobot`)
+2. В Variables: `ADMIN_TELEGRAM_IDS=123456789`
+3. Redeploy → открой игру из бота → вкладка **Топ**
+4. Если ID в списке — появится блок **Создать событие топа** (иконки, призы 1–3, таймер, тема)
 
 ### Если ошибка `ECONNREFUSED 127.0.0.1:5432`
 

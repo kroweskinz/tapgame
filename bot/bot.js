@@ -18,12 +18,26 @@ const {
   listNotifiableUsers,
   markNotified,
 } = require("./users");
+const {
+  listActiveEvents,
+  listAllEvents,
+  createEvent,
+  deactivateEvent,
+} = require("./events");
 
 const token = process.env.BOT_TOKEN || "";
 const gameUrl = process.env.GAME_URL;
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || "0.0.0.0";
 const NOTIFY_EVERY_MS = Number(process.env.NOTIFY_EVERY_MS || 4 * 60 * 60 * 1000);
+const ADMIN_IDS = new Set(
+  String(process.env.ADMIN_TELEGRAM_IDS || "")
+    .split(/[,;\s]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => Number(s))
+    .filter((n) => Number.isFinite(n) && n > 0)
+);
 
 let dbReady = false;
 let dbError = null;
@@ -50,6 +64,26 @@ function requireDb(res) {
     return false;
   }
   return true;
+}
+
+function isAdminUser(user) {
+  if (!user || !user.id) return false;
+  if (ADMIN_IDS.size === 0) return false;
+  return ADMIN_IDS.has(Number(user.id));
+}
+
+function authFromBody(req) {
+  const body = req.body || {};
+  return validateInitData(body.initData, token);
+}
+
+function parseEndsAt(raw, durationHours) {
+  if (raw) {
+    const d = new Date(raw);
+    if (!Number.isNaN(d.getTime()) && d.getTime() > Date.now() + 60_000) return d;
+  }
+  const hours = Math.min(24 * 30, Math.max(1, Number(durationHours) || 48));
+  return new Date(Date.now() + hours * 3600_000);
 }
 
 async function initDatabase() {
@@ -340,6 +374,132 @@ function createApp() {
       res.json({ ok: true, data });
     } catch (err) {
       console.error("load", err);
+      res.status(500).json({ ok: false, error: "db_error" });
+    }
+  });
+
+  app.get("/api/events", async (_req, res) => {
+    if (!requireDb(res)) return;
+    try {
+      const events = await listActiveEvents();
+      res.json({ ok: true, events });
+    } catch (err) {
+      console.error("events list", err);
+      res.status(500).json({ ok: false, error: "db_error" });
+    }
+  });
+
+  app.post("/api/events/admin/me", async (req, res) => {
+    try {
+      const auth = authFromBody(req);
+      if (!auth.ok) {
+        res.status(401).json({ ok: false, error: auth.error || "unauthorized", admin: false });
+        return;
+      }
+      res.json({
+        ok: true,
+        admin: isAdminUser(auth.user),
+        userId: auth.user.id,
+        adminsConfigured: ADMIN_IDS.size > 0,
+      });
+    } catch (err) {
+      console.error("admin me", err);
+      res.status(500).json({ ok: false, error: "server_error", admin: false });
+    }
+  });
+
+  app.post("/api/events/admin/list", async (req, res) => {
+    if (!requireDb(res)) return;
+    try {
+      const auth = authFromBody(req);
+      if (!auth.ok) {
+        res.status(401).json({ ok: false, error: auth.error || "unauthorized" });
+        return;
+      }
+      if (!isAdminUser(auth.user)) {
+        res.status(403).json({ ok: false, error: "forbidden" });
+        return;
+      }
+      const events = await listAllEvents(40);
+      res.json({ ok: true, events });
+    } catch (err) {
+      console.error("admin list", err);
+      res.status(500).json({ ok: false, error: "db_error" });
+    }
+  });
+
+  app.post("/api/events/admin/create", async (req, res) => {
+    if (!requireDb(res)) return;
+    try {
+      const auth = authFromBody(req);
+      if (!auth.ok) {
+        res.status(401).json({ ok: false, error: auth.error || "unauthorized" });
+        return;
+      }
+      if (!isAdminUser(auth.user)) {
+        res.status(403).json({ ok: false, error: "forbidden" });
+        return;
+      }
+      if (ADMIN_IDS.size === 0) {
+        res.status(503).json({ ok: false, error: "admins_not_configured" });
+        return;
+      }
+
+      const body = req.body || {};
+      const title = String(body.title || "").trim().slice(0, 80);
+      if (!title) {
+        res.status(400).json({ ok: false, error: "title_required" });
+        return;
+      }
+
+      const endsAt = parseEndsAt(body.endsAt, body.durationHours);
+      const event = await createEvent({
+        title,
+        description: String(body.description || "").trim().slice(0, 240),
+        icon: String(body.icon || "🏆").slice(0, 8),
+        theme: String(body.theme || "gold").slice(0, 24),
+        prize1Icon: String(body.prize1Icon || "🥇").slice(0, 8),
+        prize1Text: String(body.prize1Text || "").trim().slice(0, 120),
+        prize2Icon: String(body.prize2Icon || "🥈").slice(0, 8),
+        prize2Text: String(body.prize2Text || "").trim().slice(0, 120),
+        prize3Icon: String(body.prize3Icon || "🥉").slice(0, 8),
+        prize3Text: String(body.prize3Text || "").trim().slice(0, 120),
+        startsAt: body.startsAt ? new Date(body.startsAt) : new Date(),
+        endsAt,
+        createdBy: auth.user.id,
+      });
+      res.json({ ok: true, event });
+    } catch (err) {
+      console.error("admin create", err);
+      res.status(500).json({ ok: false, error: "db_error" });
+    }
+  });
+
+  app.post("/api/events/admin/deactivate", async (req, res) => {
+    if (!requireDb(res)) return;
+    try {
+      const auth = authFromBody(req);
+      if (!auth.ok) {
+        res.status(401).json({ ok: false, error: auth.error || "unauthorized" });
+        return;
+      }
+      if (!isAdminUser(auth.user)) {
+        res.status(403).json({ ok: false, error: "forbidden" });
+        return;
+      }
+      const id = Number((req.body || {}).id);
+      if (!id) {
+        res.status(400).json({ ok: false, error: "bad_id" });
+        return;
+      }
+      const event = await deactivateEvent(id);
+      if (!event) {
+        res.status(404).json({ ok: false, error: "not_found" });
+        return;
+      }
+      res.json({ ok: true, event });
+    } catch (err) {
+      console.error("admin deactivate", err);
       res.status(500).json({ ok: false, error: "db_error" });
     }
   });
