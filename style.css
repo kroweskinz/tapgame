@@ -293,9 +293,13 @@ body.tg-mini-app {
 /* —— Characters —— */
 .arena {
   position: absolute;
-  inset: 0;
+  top: 4px;
+  left: 0;
+  right: 0;
+  bottom: 78px;
   z-index: 2;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .char {
@@ -303,35 +307,45 @@ body.tg-mini-app {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-end;
   will-change: transform, left;
+  max-width: 100%;
 }
 
 .char canvas {
   display: block;
+  width: auto;
+  height: 100%;
   max-width: 100%;
-  height: auto;
+  max-height: 100%;
+  object-fit: contain;
   filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.55));
 }
 
 .char .shadow {
   width: 55%;
-  height: 14px;
-  margin-top: -8px;
+  height: 10px;
+  margin-top: -6px;
   border-radius: 50%;
   background: radial-gradient(ellipse, rgba(0, 0, 0, 0.55), transparent 70%);
+  flex-shrink: 0;
 }
 
 .char-standing {
-  bottom: 22%;
-  left: 50%;
+  bottom: 6%;
+  left: 52%;
   transform: translateX(-50%);
-  width: min(75.6vw, 324px);
+  height: 72%;
+  width: auto;
+  max-width: 62%;
   z-index: 1;
 }
 
 .char-approaching {
-  bottom: 18%;
-  width: min(48vw, 210px);
+  bottom: 2%;
+  height: 58%;
+  width: auto;
+  max-width: 48%;
   z-index: 3;
   transition: left 0.12s ease-out, transform 0.12s ease-out;
 }
@@ -775,5 +789,141 @@ body.tg-mini-app {
 @media (min-width: 480px) {
   #app {
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Compact layout for Telegram Mini App / short phones */
+.tg-mini-app .hud-top {
+  padding: 6px 10px 2px;
+}
+
+.tg-mini-app .balance-card {
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.tg-mini-app .coin-icon {
+  width: 36px;
+  height: 36px;
+  font-size: 1.05rem;
+}
+
+.tg-mini-app .balance-text .value {
+  font-size: 1.45rem;
+}
+
+.tg-mini-app .mute-btn {
+  width: 36px;
+  height: 36px;
+  font-size: 1rem;
+  border-radius: 10px;
+}
+
+.tg-mini-app .stat {
+  padding: 5px 6px;
+  border-radius: 10px;
+}
+
+.tg-mini-app .stat-label {
+  font-size: 0.58rem;
+}
+
+.tg-mini-app .stat-value {
+  font-size: 0.92rem;
+}
+
+.tg-mini-app .arena {
+  bottom: 70px;
+}
+
+.tg-mini-app .char-standing {
+  height: 68%;
+  max-width: 58%;
+  bottom: 4%;
+}
+
+.tg-mini-app .char-approaching {
+  height: 54%;
+  max-width: 44%;
+  bottom: 1%;
+}
+
+.tg-mini-app .hint {
+  font-size: 0.7rem;
+  margin-top: 6px;
+}
+
+.tg-mini-app .progress-wrap {
+  bottom: 10px;
+}
+
+.tg-mini-app .dock {
+  padding: 6px 8px calc(6px + var(--safe-bottom));
+}
+
+.tg-mini-app .dock-btn {
+  padding: 8px 4px;
+  font-size: 0.68rem;
+}
+
+@media (max-height: 720px) {
+  .char-standing {
+    height: 64%;
+    max-width: 55%;
+  }
+
+  .char-approaching {
+    height: 50%;
+    max-width: 42%;
+  }
+
+  .arena {
+    bottom: 68px;
+  }
+}
+
+@media (max-height: 620px) {
+  .hud-top {
+    padding: 4px 8px 0;
+  }
+
+  .balance-card {
+    margin-bottom: 4px;
+  }
+
+  .coin-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 0.95rem;
+  }
+
+  .balance-text .value {
+    font-size: 1.25rem;
+  }
+
+  .stats-row {
+    gap: 5px;
+  }
+
+  .stat {
+    padding: 4px 5px;
+  }
+
+  .char-standing {
+    height: 58%;
+    max-width: 50%;
+  }
+
+  .char-approaching {
+    height: 46%;
+    max-width: 40%;
+  }
+
+  .hint {
+    display: none;
+  }
+
+  .arena {
+    bottom: 58px;
   }
 }

@@ -11,9 +11,25 @@
   function init() {
     if (!tg) return { tg: null, isTelegram: false, user: null };
 
+    const inTelegram = Boolean(
+      (tg.initData && tg.initData.length > 0) ||
+        (tg.platform && tg.platform !== "unknown")
+    );
+
+    if (!inTelegram) {
+      return { tg, isTelegram: false, user: null };
+    }
+
     try {
       tg.ready();
       tg.expand();
+      if (typeof tg.requestFullscreen === "function") {
+        try {
+          tg.requestFullscreen();
+        } catch (_) {
+          /* optional */
+        }
+      }
 
       if (typeof tg.setHeaderColor === "function") {
         tg.setHeaderColor("#0f2418");
@@ -32,6 +48,8 @@
       if (typeof tg.onEvent === "function") {
         tg.onEvent("themeChanged", () => applyTheme(tg.themeParams || {}));
         tg.onEvent("viewportChanged", syncViewport);
+        tg.onEvent("safeAreaChanged", syncViewport);
+        tg.onEvent("contentSafeAreaChanged", syncViewport);
       }
       syncViewport();
     } catch (err) {
@@ -56,6 +74,13 @@
     if (h) {
       document.documentElement.style.setProperty("--tg-viewport-stable-height", `${h}px`);
     }
+
+    const safe = tg.safeAreaInset || {};
+    const content = tg.contentSafeAreaInset || {};
+    const top = (safe.top || 0) + (content.top || 0);
+    const bottom = (safe.bottom || 0) + (content.bottom || 0);
+    if (top) document.documentElement.style.setProperty("--safe-top", `${top}px`);
+    if (bottom) document.documentElement.style.setProperty("--safe-bottom", `${bottom}px`);
   }
 
   function haptic(type) {

@@ -428,10 +428,12 @@
   }
 
   function updateApproachPosition() {
-    // Start far left (~8%), end near center (~42%)
-    const left = 8 + state.progress * 34;
+    // Start far left (~10%), end near center (~44%)
+    const left = 10 + state.progress * 34;
+    const scale = 0.9 + state.progress * 0.12;
     el.approaching.style.left = `${left}%`;
-    el.approaching.style.transform = `translateX(-50%) scale(${0.85 + state.progress * 0.2})`;
+    el.approaching.style.transform = `translateX(-50%) scale(${scale})`;
+    el.approaching.style.transformOrigin = "center bottom";
     el.progressFill.style.width = `${state.progress * 100}%`;
     el.distancePct.textContent = `${Math.round(state.progress * 100)}%`;
   }
