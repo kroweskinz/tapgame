@@ -72,7 +72,6 @@ body.tg-mini-app {
 }
 
 .mute-btn {
-  margin-left: auto;
   appearance: none;
   border: 1px solid var(--panel-border);
   background: rgba(0, 0, 0, 0.35);
@@ -92,6 +91,68 @@ body.tg-mini-app {
 
 .mute-btn.is-muted {
   opacity: 0.55;
+}
+
+.level-badge {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 48px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(240, 193, 75, 0.35);
+  pointer-events: none;
+}
+
+.level-label {
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+  line-height: 1;
+}
+
+.level-num {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--gold-bright);
+  line-height: 1.1;
+}
+
+.xp-wrap {
+  margin-bottom: 8px;
+  pointer-events: none;
+}
+
+.xp-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  font-weight: 800;
+  opacity: 0.75;
+  margin-bottom: 4px;
+}
+
+.xp-bar {
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(240, 193, 75, 0.25);
+  overflow: hidden;
+}
+
+.xp-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c9a227, var(--gold-bright));
+  box-shadow: 0 0 10px rgba(240, 193, 75, 0.35);
+  transition: width 0.18s ease-out;
 }
 
 .coin-icon {
@@ -818,6 +879,24 @@ body.tg-mini-app {
 
 .tg-mini-app .balance-text .value {
   font-size: 1.45rem;
+}
+
+.tg-mini-app .level-badge {
+  min-width: 40px;
+  height: 36px;
+  padding: 2px 6px;
+}
+
+.tg-mini-app .level-num {
+  font-size: 1.05rem;
+}
+
+.tg-mini-app .xp-wrap {
+  margin-bottom: 6px;
+}
+
+.tg-mini-app .xp-bar {
+  height: 5px;
 }
 
 .tg-mini-app .mute-btn {

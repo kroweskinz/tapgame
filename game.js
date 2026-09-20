@@ -4,6 +4,7 @@
   const SAVE_KEY = "cum-tap-forest-v1";
   const PRESTIGE_REQ = 1000;
   const MUTE_KEY = "cum-tap-muted";
+  const MAX_LEVEL = 100;
 
   /* Положи свои файлы сюда:
      assets/sfx-tap.mp3  — звук тапа
@@ -13,6 +14,18 @@
     tap: ["assets/sfx-tap.mp3", "assets/sfx-tap.wav", "assets/sfx-tap.ogg"],
     meet: ["assets/sfx-meet.mp3", "assets/sfx-meet.wav", "assets/sfx-meet.ogg"],
   };
+
+  /** XP needed to go from `level` → `level + 1` (slow curve to 100). */
+  function xpToNextLevel(level) {
+    if (level >= MAX_LEVEL) return 0;
+    // ~1→2: ~33 XP, ~50→51: ~7.5K, ~99→100: ~27K; total to 100 ≈ 550K XP
+    return Math.floor(18 * Math.pow(level, 1.58) + 15 * level);
+  }
+
+  function getLevelMult(s = state) {
+    // +0.7% income per level → ×1.70 at 100
+    return 1 + (Math.max(1, s.playerLevel) - 1) * 0.007;
+  }
 
   const UPGRADES = [
     {
@@ -144,6 +157,8 @@
       lastTapAt: 0,
       meetings: 0,
       totalTaps: 0,
+      playerLevel: 1,
+      xp: 0,
     };
   }
 
@@ -267,6 +282,10 @@
     toast: document.getElementById("toast"),
     panel: document.getElementById("panel"),
     muteBtn: document.getElementById("mute-btn"),
+    playerLevel: document.getElementById("player-level"),
+    xpFill: document.getElementById("xp-fill"),
+    xpText: document.getElementById("xp-text"),
+    xpPct: document.getElementById("xp-pct"),
   };
 
   function formatNum(n) {
@@ -301,7 +320,68 @@
   }
 
   function getMultiplier(s = state) {
-    return (1 + s.multiBonus) * getPrestigeMult(s) * getBoostMult(s) * getComboMult(s);
+    return (
+      (1 + s.multiBonus) *
+      getPrestigeMult(s) *
+      getLevelMult(s) *
+      getBoostMult(s) *
+      getComboMult(s)
+    );
+  }
+
+  function gainXp(amount, opts = {}) {
+    if (!amount || amount <= 0) return;
+    if (state.playerLevel >= MAX_LEVEL) {
+      state.xp = 0;
+      return;
+    }
+
+    state.xp += amount;
+    let leveled = false;
+    let guard = 0;
+    while (state.playerLevel < MAX_LEVEL && guard++ < 20) {
+      const need = xpToNextLevel(state.playerLevel);
+      if (state.xp < need) break;
+      state.xp -= need;
+      state.playerLevel += 1;
+      leveled = true;
+
+      const reward = Math.floor(8 * state.playerLevel + Math.pow(state.playerLevel, 1.15));
+      state.balance += reward;
+      state.lifetime += reward;
+
+      if (window.TapTelegram) window.TapTelegram.haptic("meet");
+      showToast(
+        state.playerLevel >= MAX_LEVEL
+          ? `Макс. уровень ${MAX_LEVEL}! +${formatNum(reward)} CUM`
+          : `Уровень ${state.playerLevel}! +${formatNum(reward)} CUM`
+      );
+    }
+
+    if (state.playerLevel >= MAX_LEVEL) {
+      state.playerLevel = MAX_LEVEL;
+      state.xp = 0;
+    }
+
+    if (leveled && opts.fromMeet) {
+      /* toast already shown */
+    }
+  }
+
+  function updateXpHud() {
+    if (!el.playerLevel) return;
+    el.playerLevel.textContent = String(state.playerLevel);
+    if (state.playerLevel >= MAX_LEVEL) {
+      el.xpText.textContent = `MAX ${MAX_LEVEL}`;
+      el.xpPct.textContent = "100%";
+      el.xpFill.style.width = "100%";
+      return;
+    }
+    const need = xpToNextLevel(state.playerLevel);
+    const pct = need > 0 ? Math.min(100, (state.xp / need) * 100) : 0;
+    el.xpText.textContent = `${formatNum(state.xp)} / ${formatNum(need)} XP`;
+    el.xpPct.textContent = `${Math.floor(pct)}%`;
+    el.xpFill.style.width = `${pct}%`;
   }
 
   function upgradeCost(upgrade, level) {
@@ -363,6 +443,13 @@
       crit,
     });
 
+    // Slow XP: manual tap 1, crit +1, auto much less
+    if (fromAuto) {
+      gainXp(0.2);
+    } else {
+      gainXp(crit ? 2 : 1);
+    }
+
     state.progress = Math.min(1, state.progress + state.step);
     updateApproachPosition();
 
@@ -395,6 +482,8 @@
     }, 550);
 
     showToast(`Встреча! +${formatNum(bonus)} CUM`);
+    // After meet toast so level-up toast can replace it if needed
+    gainXp(10 + Math.floor(state.playerLevel * 0.35), { fromMeet: true });
     updateApproachPosition();
   }
 
@@ -493,6 +582,7 @@
     el.multiplier.textContent = formatNum(getMultiplier());
     const cps = state.autoTaps * getBoostAutoMult() * state.tapPower * getMultiplier();
     el.cps.textContent = formatNum(cps);
+    updateXpHud();
 
     const comboMult = getComboMult();
     if (state.combo >= 5 && Date.now() - state.lastTapAt < state.comboWindow * 1000) {
@@ -637,8 +727,13 @@
     if (state.lifetime < PRESTIGE_REQ) return;
     state.prestige += 1;
     const prestige = state.prestige;
+    const keptLevel = state.playerLevel;
+    const keptXp = state.xp;
     state = defaultState();
     state.prestige = prestige;
+    // Level grind is slow — keep it across prestige
+    state.playerLevel = keptLevel;
+    state.xp = keptXp;
     shopDirty = true;
     showToast(`Престиж ${prestige}! Множитель ×${getPrestigeMult().toFixed(2)}`);
     updateApproachPosition();
@@ -658,7 +753,12 @@
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return null;
-      return { ...defaultState(), ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
+      const merged = { ...defaultState(), ...parsed };
+      merged.levels = { ...defaultState().levels, ...(parsed.levels || {}) };
+      merged.playerLevel = Math.min(MAX_LEVEL, Math.max(1, Math.floor(merged.playerLevel || 1)));
+      merged.xp = Math.max(0, Number(merged.xp) || 0);
+      return merged;
     } catch (_) {
       return null;
     }
