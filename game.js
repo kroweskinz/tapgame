@@ -159,10 +159,38 @@
       totalTaps: 0,
       playerLevel: 1,
       xp: 0,
+      achievements: {},
+      achStats: null,
     };
   }
 
   let state = load() || defaultState();
+  if (!state.achStats && window.CumAchievements) {
+    state.achStats = window.CumAchievements.defaultStats();
+  } else if (!state.achStats) {
+    state.achStats = {
+      crits: 0,
+      maxCombo: 0,
+      boostsUsed: 0,
+      boostX5: 0,
+      boostFrenzy: 0,
+      upgradesBought: 0,
+      donateCount: 0,
+      donateCum: 0,
+      playSeconds: 0,
+      nightTap: false,
+      morningTap: false,
+      mutedOnce: false,
+      openedLeaderboard: false,
+      openedAchievements: false,
+      sessionStart: Date.now(),
+      sessionLifetimeAt500s: 0,
+      peakCps: 0,
+    };
+  }
+  if (!state.achievements) state.achievements = {};
+  state.achStats.sessionStart = Date.now();
+  state.achStats.sessionLifetimeAt500s = state.achStats.sessionLifetimeAt500s || 0;
   let autoAcc = 0;
   let hintHidden = false;
   let muted = localStorage.getItem(MUTE_KEY) === "1";
@@ -436,12 +464,27 @@
       window.TapTelegram.haptic(crit ? "medium" : "light");
     }
 
+    if (crit) state.achStats.crits += 1;
+    if (!fromAuto) {
+      if (state.combo > state.achStats.maxCombo) state.achStats.maxCombo = state.combo;
+      const hour = new Date().getHours();
+      if (hour >= 0 && hour < 5) state.achStats.nightTap = true;
+      if (hour >= 5 && hour < 8) state.achStats.morningTap = true;
+    }
+
     const mult = getMultiplier();
     const gained = earn(power * mult, {
       x: x - stageRect.left,
       y: y - stageRect.top,
       crit,
     });
+
+    if (state.lifetime >= 500 && !state.achStats.sessionLifetimeAt500s) {
+      state.achStats.sessionLifetimeAt500s = Math.max(
+        1,
+        Math.floor((Date.now() - (state.achStats.sessionStart || Date.now())) / 1000)
+      );
+    }
 
     // Slow XP: manual tap 1, crit +1, auto much less
     if (fromAuto) {
@@ -457,6 +500,7 @@
       onMeet(stageRect);
     }
 
+    if (window.CumAchievements) window.CumAchievements.tick();
     updateHUD();
     return gained;
   }
@@ -484,6 +528,7 @@
     showToast(`Встреча! +${formatNum(bonus)} CUM`);
     // After meet toast so level-up toast can replace it if needed
     gainXp(10 + Math.floor(state.playerLevel * 0.35), { fromMeet: true });
+    if (window.CumAchievements) window.CumAchievements.tick();
     updateApproachPosition();
   }
 
@@ -582,6 +627,9 @@
     el.multiplier.textContent = formatNum(getMultiplier());
     const cps = state.autoTaps * getBoostAutoMult() * state.tapPower * getMultiplier();
     el.cps.textContent = formatNum(cps);
+    if (state.achStats && cps > (state.achStats.peakCps || 0)) {
+      state.achStats.peakCps = cps;
+    }
     updateXpHud();
 
     const comboMult = getComboMult();
@@ -701,8 +749,10 @@
     state.balance -= cost;
     state.levels[id] = level + 1;
     u.effect(state);
+    state.achStats.upgradesBought += 1;
     shopDirty = true;
     showToast(`${u.title} ↑`);
+    if (window.CumAchievements) window.CumAchievements.tick();
     updateHUD();
     save();
   }
@@ -717,8 +767,12 @@
     state.boostMult = b.mult;
     state.boostAutoMult = b.autoMult || 1;
     state.boostLabel = b.title;
+    state.achStats.boostsUsed += 1;
+    if (id === "x5") state.achStats.boostX5 += 1;
+    if (id === "frenzy") state.achStats.boostFrenzy += 1;
     shopDirty = true;
     showToast(`${b.title} активирован!`);
+    if (window.CumAchievements) window.CumAchievements.tick();
     updateHUD();
     save();
   }
@@ -729,13 +783,17 @@
     const prestige = state.prestige;
     const keptLevel = state.playerLevel;
     const keptXp = state.xp;
+    const keptAch = state.achievements;
+    const keptAchStats = state.achStats;
     state = defaultState();
     state.prestige = prestige;
-    // Level grind is slow — keep it across prestige
     state.playerLevel = keptLevel;
     state.xp = keptXp;
+    state.achievements = keptAch;
+    state.achStats = keptAchStats;
     shopDirty = true;
     showToast(`Престиж ${prestige}! Множитель ×${getPrestigeMult().toFixed(2)}`);
+    if (window.CumAchievements) window.CumAchievements.tick();
     updateApproachPosition();
     updateHUD();
     save();
@@ -758,6 +816,11 @@
       merged.levels = { ...defaultState().levels, ...(parsed.levels || {}) };
       merged.playerLevel = Math.min(MAX_LEVEL, Math.max(1, Math.floor(merged.playerLevel || 1)));
       merged.xp = Math.max(0, Number(merged.xp) || 0);
+      merged.achievements = parsed.achievements && typeof parsed.achievements === "object" ? parsed.achievements : {};
+      const baseStats = window.CumAchievements
+        ? window.CumAchievements.defaultStats()
+        : {};
+      merged.achStats = { ...baseStats, ...(parsed.achStats || {}) };
       return merged;
     } catch (_) {
       return null;
@@ -822,6 +885,11 @@
     localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
     updateMuteBtn();
     if (!muted) unlockAudio();
+    if (muted && state.achStats) {
+      state.achStats.mutedOnce = true;
+      if (window.CumAchievements) window.CumAchievements.tick();
+      save();
+    }
   });
 
   // pointerup is more reliable than click inside Telegram WebView
@@ -901,6 +969,8 @@
     shopDirty = true;
     updateHUD();
     if (name === "leaderboard") {
+      if (state.achStats) state.achStats.openedLeaderboard = true;
+      if (window.CumAchievements) window.CumAchievements.tick();
       syncLeaderboard(true);
     }
   }
@@ -972,14 +1042,48 @@
         onGrant(cum) {
           state.balance += cum;
           state.lifetime += cum;
+          state.achStats.donateCount += 1;
+          state.achStats.donateCum += cum;
           if (window.TapTelegram) window.TapTelegram.haptic("meet");
           showToast(`Донат получен! +${formatNum(cum)} CUM`);
+          if (window.CumAchievements) window.CumAchievements.tick();
           updateHUD();
           save();
           syncLeaderboard(false);
         },
       });
     }
+
+    if (window.CumAchievements) {
+      window.CumAchievements.init({
+        getState: () => state,
+        getStats: () => state.achStats,
+        setStats: (s) => {
+          state.achStats = s;
+          save();
+        },
+        formatNum,
+        onUnlock(a) {
+          state.balance += a.reward;
+          state.lifetime += a.reward;
+          if (window.TapTelegram) window.TapTelegram.haptic("meet");
+          showToast(`🏅 ${a.title}! +${formatNum(a.reward)} CUM`);
+          updateHUD();
+          save();
+        },
+      });
+    }
+
+    // Playtime tracker
+    setInterval(() => {
+      if (state.achStats) {
+        state.achStats.playSeconds += 1;
+        if (state.achStats.playSeconds % 30 === 0) {
+          if (window.CumAchievements) window.CumAchievements.tick();
+          save();
+        }
+      }
+    }, 1000);
 
     const lbRefresh = document.getElementById("leaderboard-refresh");
     if (lbRefresh) {

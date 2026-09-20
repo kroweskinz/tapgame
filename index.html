@@ -24,6 +24,10 @@
           <span class="level-label">Ур.</span>
           <span id="player-level" class="level-num">1</span>
         </div>
+        <button type="button" class="ach-btn" id="ach-open" aria-label="Достижения" title="Достижения">
+          🏅
+          <span class="ach-badge" id="ach-badge" hidden>0</span>
+        </button>
         <button type="button" class="mute-btn" id="mute-btn" aria-label="Звук" title="Звук">🔊</button>
       </div>
       <div class="xp-wrap" title="Опыт до следующего уровня">
@@ -176,6 +180,22 @@
       </div>
     </div>
 
+    <div class="donate-modal" id="ach-modal" hidden>
+      <div class="donate-sheet ach-sheet" role="dialog" aria-modal="true" aria-labelledby="ach-title">
+        <div class="donate-sheet-top">
+          <h2 id="ach-title">Достижения</h2>
+          <button type="button" class="donate-close" id="ach-close" aria-label="Закрыть">×</button>
+        </div>
+        <p class="ach-meta" id="ach-meta">Открыто 0 / 0</p>
+        <div class="ach-filters">
+          <button type="button" class="ach-filter active" data-ach-filter="all">Все</button>
+          <button type="button" class="ach-filter" data-ach-filter="done">Открытые</button>
+          <button type="button" class="ach-filter" data-ach-filter="locked">Закрытые</button>
+        </div>
+        <div class="ach-list" id="ach-list"></div>
+      </div>
+    </div>
+
     <div class="toast" id="toast" hidden></div>
   </div>
 
@@ -184,6 +204,7 @@
   <script src="telegram.js"></script>
   <script src="donate.js"></script>
   <script src="leaderboard.js"></script>
+  <script src="achievements.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
