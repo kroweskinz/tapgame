@@ -154,6 +154,26 @@ async function migrate(retries = 12) {
 
         CREATE INDEX IF NOT EXISTS leaderboard_events_active_idx
           ON leaderboard_events (active, ends_at);
+
+        ALTER TABLE players
+          ADD COLUMN IF NOT EXISTS career_earned BIGINT NOT NULL DEFAULT 0;
+
+        CREATE TABLE IF NOT EXISTS event_scores (
+          event_id INT NOT NULL REFERENCES leaderboard_events(id) ON DELETE CASCADE,
+          user_id BIGINT NOT NULL,
+          name TEXT NOT NULL DEFAULT 'Игрок',
+          username TEXT NOT NULL DEFAULT '',
+          photo_url TEXT NOT NULL DEFAULT '',
+          baseline BIGINT NOT NULL DEFAULT 0,
+          score BIGINT NOT NULL DEFAULT 0,
+          level INT NOT NULL DEFAULT 1,
+          prestige INT NOT NULL DEFAULT 0,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (event_id, user_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS event_scores_rank_idx
+          ON event_scores (event_id, score DESC, updated_at ASC);
       `);
       console.log("Postgres schema ready");
       return;

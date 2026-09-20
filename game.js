@@ -139,6 +139,7 @@
     return {
       balance: 0,
       lifetime: 0,
+      careerEarned: 0,
       tapPower: 1,
       multiBonus: 0,
       step: 0.035,
@@ -199,6 +200,9 @@
   state.achStats.sessionLifeAt100mSec = state.achStats.sessionLifeAt100mSec || 0;
   state.achStats.nightTaps = state.achStats.nightTaps || 0;
   state.achStats.morningTaps = state.achStats.morningTaps || 0;
+  if (!Number.isFinite(state.careerEarned) || state.careerEarned < (Number(state.lifetime) || 0)) {
+    state.careerEarned = Math.max(0, Number(state.lifetime) || 0);
+  }
   let autoAcc = 0;
   let hintHidden = false;
   let muted = localStorage.getItem(MUTE_KEY) === "1";
@@ -386,6 +390,7 @@
       const reward = Math.floor(8 * state.playerLevel + Math.pow(state.playerLevel, 1.15));
       state.balance += reward;
       state.lifetime += reward;
+      state.careerEarned = (Number(state.careerEarned) || 0) + reward;
 
       if (window.TapTelegram) window.TapTelegram.haptic("meet");
       showToast(
@@ -429,6 +434,7 @@
     const gained = Math.max(0, amount);
     state.balance += gained;
     state.lifetime += gained;
+    state.careerEarned = (Number(state.careerEarned) || 0) + gained;
     if (opts.x != null && opts.y != null) {
       spawnFloat(opts.x, opts.y, gained, opts.crit);
     }
@@ -812,12 +818,17 @@
     const keptXp = state.xp;
     const keptAch = state.achievements;
     const keptAchStats = state.achStats;
+    const keptCareer = Math.max(
+      Number(state.careerEarned) || 0,
+      Number(state.lifetime) || 0
+    );
     state = defaultState();
     state.prestige = prestige;
     state.playerLevel = keptLevel;
     state.xp = keptXp;
     state.achievements = keptAch;
     state.achStats = keptAchStats;
+    state.careerEarned = keptCareer;
     shopDirty = true;
     showToast(`Престиж ${prestige}! Множитель ×${getPrestigeMult().toFixed(2)}`);
     if (window.CumAchievements) window.CumAchievements.tick();
@@ -862,6 +873,11 @@
       MAX_LEVEL,
       Math.max(1, Math.floor(merged.playerLevel || 1))
     );
+    merged.careerEarned = Math.max(
+      Number(state.careerEarned) || 0,
+      Number(merged.careerEarned) || 0,
+      Number(merged.lifetime) || 0
+    );
     state = merged;
     shopDirty = true;
     return true;
@@ -881,6 +897,10 @@
         ? window.CumAchievements.defaultStats()
         : {};
       merged.achStats = { ...baseStats, ...(parsed.achStats || {}) };
+      merged.careerEarned = Math.max(
+        Number(merged.careerEarned) || 0,
+        Number(merged.lifetime) || 0
+      );
       return merged;
     } catch (_) {
       return null;
@@ -1041,13 +1061,17 @@
       balance: state.balance,
       level: state.playerLevel,
       prestige: state.prestige,
+      careerEarned: Math.max(Number(state.careerEarned) || 0, Number(state.lifetime) || 0),
     };
   }
 
   async function syncLeaderboard(forceRefresh) {
     if (!window.CumLeaderboard) return;
     await window.CumLeaderboard.submit(leaderboardStats());
-    if (forceRefresh) await window.CumLeaderboard.refresh();
+    if (forceRefresh) {
+      await window.CumLeaderboard.refresh();
+      if (window.TapEvents) await window.TapEvents.refresh();
+    }
   }
 
   document.querySelectorAll(".dock-btn[data-panel]").forEach((btn) => {
@@ -1115,6 +1139,7 @@
         onGrant(cum) {
           state.balance += cum;
           state.lifetime += cum;
+          state.careerEarned = (Number(state.careerEarned) || 0) + cum;
           state.achStats.donateCount += 1;
           state.achStats.donateCum += cum;
           if (window.TapTelegram) window.TapTelegram.haptic("meet");
@@ -1139,6 +1164,7 @@
         onUnlock(a) {
           state.balance += a.reward;
           state.lifetime += a.reward;
+          state.careerEarned = (Number(state.careerEarned) || 0) + a.reward;
           if (window.TapTelegram) window.TapTelegram.haptic("meet");
           showToast(`🏅 ${a.title}! +${formatNum(a.reward)} CUM`);
           updateHUD();
@@ -1164,7 +1190,6 @@
         e.preventDefault();
         e.stopPropagation();
         syncLeaderboard(true);
-        if (window.TapEvents) window.TapEvents.refresh();
       });
     }
 

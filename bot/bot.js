@@ -23,6 +23,8 @@ const {
   listAllEvents,
   createEvent,
   deactivateEvent,
+  attachLeaderboards,
+  submitToActiveEvents,
 } = require("./events");
 
 const token = process.env.BOT_TOKEN || "";
@@ -319,6 +321,10 @@ function createApp() {
       const balance = Math.max(0, Math.floor(Number(body.balance) || 0));
       const level = Math.min(100, Math.max(1, Math.floor(Number(body.level) || 1)));
       const prestige = Math.max(0, Math.floor(Number(body.prestige) || 0));
+      const careerEarned = Math.max(
+        balance,
+        Math.floor(Number(body.careerEarned) || 0)
+      );
 
       const saved = await upsertPlayer({
         userId: user.id,
@@ -329,9 +335,26 @@ function createApp() {
         score: balance,
         level,
         prestige,
+        careerEarned,
       });
       const me = await getRank(user.id);
-      res.json({ ok: true, player: saved, me });
+
+      let events = [];
+      try {
+        events = await submitToActiveEvents({
+          userId: user.id,
+          name: [user.first_name, user.last_name].filter(Boolean).join(" ") || "Игрок",
+          username: user.username || "",
+          photoUrl: user.photo_url || "",
+          careerEarned,
+          level,
+          prestige,
+        });
+      } catch (evErr) {
+        console.error("event submit", evErr);
+      }
+
+      res.json({ ok: true, player: saved, me, events });
     } catch (err) {
       console.error("submit", err);
       res.status(500).json({ ok: false, error: "db_error" });
@@ -378,13 +401,28 @@ function createApp() {
     }
   });
 
-  app.get("/api/events", async (_req, res) => {
+  app.get("/api/events", async (req, res) => {
     if (!requireDb(res)) return;
     try {
       const events = await listActiveEvents();
-      res.json({ ok: true, events });
+      const withLb = await attachLeaderboards(events, 10, null);
+      res.json({ ok: true, events: withLb });
     } catch (err) {
       console.error("events list", err);
+      res.status(500).json({ ok: false, error: "db_error" });
+    }
+  });
+
+  app.post("/api/events", async (req, res) => {
+    if (!requireDb(res)) return;
+    try {
+      const auth = authFromBody(req);
+      const events = await listActiveEvents();
+      const userId = auth.ok ? auth.user.id : null;
+      const withLb = await attachLeaderboards(events, 10, userId);
+      res.json({ ok: true, events: withLb, admin: auth.ok ? isAdminUser(auth.user) : false });
+    } catch (err) {
+      console.error("events list post", err);
       res.status(500).json({ ok: false, error: "db_error" });
     }
   });

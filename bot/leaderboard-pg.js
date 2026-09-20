@@ -6,11 +6,15 @@ async function upsertPlayer(entry) {
   const prestige = Math.max(0, Math.floor(Number(entry.prestige) || 0));
   const score = balance;
   const userId = Number(entry.userId);
+  const careerEarned = Math.max(
+    balance,
+    Math.floor(Number(entry.careerEarned) || 0)
+  );
 
   const result = await query(
     `
-    INSERT INTO players (user_id, name, username, photo_url, balance, level, prestige, score, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+    INSERT INTO players (user_id, name, username, photo_url, balance, level, prestige, score, career_earned, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
     ON CONFLICT (user_id) DO UPDATE SET
       name = EXCLUDED.name,
       username = EXCLUDED.username,
@@ -19,6 +23,7 @@ async function upsertPlayer(entry) {
       level = EXCLUDED.level,
       prestige = EXCLUDED.prestige,
       score = EXCLUDED.score,
+      career_earned = GREATEST(players.career_earned, EXCLUDED.career_earned),
       updated_at = NOW()
     RETURNING *
     `,
@@ -31,6 +36,7 @@ async function upsertPlayer(entry) {
       level,
       prestige,
       score,
+      careerEarned,
     ]
   );
 
@@ -91,6 +97,7 @@ function mapRow(row) {
     level: Number(row.level) || 1,
     prestige: Number(row.prestige) || 0,
     score: Number(row.score != null ? row.score : row.balance) || 0,
+    careerEarned: Number(row.career_earned) || 0,
     updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
   };
 }

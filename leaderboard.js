@@ -235,6 +235,7 @@
         balance: stats.balance || 0,
         level: stats.level || 1,
         prestige: stats.prestige || 0,
+        careerEarned: stats.careerEarned || 0,
       }),
     });
     const data = await res.json();

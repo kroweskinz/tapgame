@@ -85,6 +85,16 @@
     tickTimer = setInterval(renderCountdownBits, 1000);
   }
 
+  function formatCum(n) {
+    const v = Math.floor(Number(n) || 0);
+    if (v >= 1e12) return (v / 1e12).toFixed(2) + "T";
+    if (v >= 1e9) return (v / 1e9).toFixed(2) + "B";
+    if (v >= 1e6) return (v / 1e6).toFixed(2) + "M";
+    if (v >= 1e4) return (v / 1e3).toFixed(1) + "K";
+    if (v >= 1000) return (v / 1e3).toFixed(2) + "K";
+    return String(v);
+  }
+
   function renderEventCard(ev) {
     const ends = new Date(ev.endsAt).getTime();
     const prizes = (ev.prizes || [])
@@ -94,6 +104,27 @@
           `<div class="ev-prize"><span class="ev-prize-icon">${escapeHtml(p.icon || "🎁")}</span><div class="ev-prize-body"><span class="ev-prize-place">${p.place} место</span><span class="ev-prize-text">${escapeHtml(p.text)}</span></div></div>`
       )
       .join("");
+
+    const board = Array.isArray(ev.leaderboard) ? ev.leaderboard : [];
+    const rows = board.length
+      ? board
+          .map((p) => {
+            const name = p.username ? `@${p.username}` : p.name || "Игрок";
+            const medal =
+              p.rank === 1 ? "🥇" : p.rank === 2 ? "🥈" : p.rank === 3 ? "🥉" : `#${p.rank}`;
+            return `
+              <div class="ev-lb-row">
+                <span class="ev-lb-rank">${medal}</span>
+                <span class="ev-lb-name">${escapeHtml(name)}</span>
+                <span class="ev-lb-score">${formatCum(p.score)}</span>
+              </div>`;
+          })
+          .join("")
+      : `<p class="ev-lb-empty">Рейтинг события пуст — тапай, чтобы попасть в топ</p>`;
+
+    const meLine = ev.me
+      ? `<div class="ev-lb-me">Ты: #${ev.me.rank} · ${formatCum(ev.me.score)} CUM за событие</div>`
+      : `<div class="ev-lb-me">Счёт события идёт с момента создания. Тапай и жми «Обновить».</div>`;
 
     return `
       <article class="ev-card theme-${escapeHtml(ev.theme || "gold")}">
@@ -110,6 +141,11 @@
           <span class="ev-countdown-value" data-event-ends="${ends}">${formatRemain(ends - Date.now())}</span>
         </div>
         ${prizes ? `<div class="ev-prizes">${prizes}</div>` : ""}
+        <div class="ev-lb">
+          <div class="ev-lb-head">Топ события</div>
+          <div class="ev-lb-list">${rows}</div>
+          ${meLine}
+        </div>
       </article>
     `;
   }
@@ -340,8 +376,19 @@
       return;
     }
     try {
-      const res = await fetch(`${base}/api/events`, { cache: "no-store" });
-      const data = await res.json();
+      const dataInit = initData();
+      let data;
+      if (dataInit) {
+        const res = await fetch(`${base}/api/events`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ initData: dataInit }),
+        });
+        data = await res.json();
+      } else {
+        const res = await fetch(`${base}/api/events`, { cache: "no-store" });
+        data = await res.json();
+      }
       events = data && data.ok && Array.isArray(data.events) ? data.events : [];
     } catch (_) {
       events = [];
