@@ -53,19 +53,28 @@ npm run bot
 
 В игре вкладка **Топ**. Очки = lifetime CUM + уровень×500 + престиж×5000.
 
-1. Задеплой бота с API на HTTPS (Render / Railway / VPS):
-   ```bash
-   npm install
-   npm start
-   ```
-2. В `payment-config.js` укажи:
-   ```js
-   leaderboardApi: "https://твой-бот-хост"
-   ```
-3. Открой Mini App из Telegram — прогресс уходит в топ автоматически.
-4. В боте команда `/top` — краткий топ-10.
+Полностью «в воздухе» без общего хранилища топ между игроками **невозможен** — нужен хоть какой-то общий склад.
 
-Без `leaderboardApi` вкладка покажет подсказку по подключению.
+### Без своего сервера (рекомендуется) — JSONBin
+
+1. Зайди на [jsonbin.io](https://jsonbin.io), зарегистрируйся  
+2. Create Bin → тело: `{"players":{}}` → Create  
+3. Скопируй **Bin ID** и **Master Key** (API Keys)  
+4. В `payment-config.js`:
+   ```js
+   jsonbinId: "твой_bin_id",
+   jsonbinKey: "$2a$...твой_master_key",
+   leaderboardApi: "",
+   ```
+5. Задеплой игру / обнови Mini App — топ заработает из Telegram
+
+Ключ будет в клиенте (для казуалки ок). Для жёсткой защиты от читов нужен сервер.
+
+### Со своим API бота
+
+1. Задеплой бота на HTTPS, `npm start`  
+2. В `payment-config.js`: `leaderboardApi: "https://твой-бот-хост"`  
+3. Команда `/top` в боте
 
 
 ## Донат (Т‑Банк / Сбер)

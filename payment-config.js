@@ -1,8 +1,13 @@
 /* Общий конфиг игры / доната / лидерборда */
 window.CUM_CONFIG = {
-  // HTTPS URL сервера бота (куда крутится `npm start`), без слэша в конце.
-  // Пример: "https://your-bot.onrender.com"
+  // Вариант 1: свой сервер бота (npm start)
   leaderboardApi: "",
+
+  // Вариант 2 БЕЗ сервера: JSONBin (https://jsonbin.io)
+  // Создай Bin с содержимым: {"players":{}}
+  // Вставь Bin ID и Master Key:
+  jsonbinId: "",
+  jsonbinKey: "",
 
   // Донат
   demoMode: true,
