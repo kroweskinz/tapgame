@@ -35,6 +35,18 @@
 `Postgres connecting to host: postgres.railway.internal`  
 (не `127.0.0.1`).
 
+### Домен открывается, но «не работает»
+
+1. Домен должен висеть на сервисе **приложения** (Node), **не** на Postgres  
+2. Открой `https://твой-домен/` — игра  
+3. Открой `https://твой-домен/api/health`  
+   - `"db": true` — ок  
+   - `"db": false` — смотри поле `dbError` (часто localhost в DATABASE_URL)  
+4. В Variables поставь `GAME_URL` = этот же домен и Redeploy  
+5. В BotFather Web App URL = этот же домен
+
+После последнего пуша сайт поднимается даже без БД; топ/сейв заработают после починки DATABASE_URL.
+
 ## Локально
 
 ```bash
