@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f2418" />
+  <title>CUM Tap — Лесная тапалка</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Russo+One&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="hud-top">
+      <div class="balance-card">
+        <div class="coin-icon" aria-hidden="true">C</div>
+        <div class="balance-text">
+          <span class="label">Баланс</span>
+          <span id="balance" class="value">0</span>
+          <span class="currency">CUM</span>
+        </div>
+        <button type="button" class="mute-btn" id="mute-btn" aria-label="Звук" title="Звук">🔊</button>
+      </div>
+      <div class="stats-row">
+        <div class="stat">
+          <span class="stat-label">за тап</span>
+          <span id="tap-power" class="stat-value">1</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">× множ.</span>
+          <span id="multiplier" class="stat-value">1.0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">CUM/сек</span>
+          <span id="cps" class="stat-value">0</span>
+        </div>
+      </div>
+    </header>
+
+    <main id="stage" class="stage">
+      <div class="forest" aria-hidden="true">
+        <div class="mist mist-1"></div>
+        <div class="mist mist-2"></div>
+        <div class="trees back"></div>
+        <div class="trees mid"></div>
+        <div class="ground"></div>
+        <div class="trees front"></div>
+      </div>
+
+      <div class="combo-banner" id="combo-banner" hidden>
+        <span id="combo-text">COMBO ×2</span>
+      </div>
+
+      <div class="boost-banner" id="boost-banner" hidden>
+        <span id="boost-text">БУСТ ×2</span>
+        <span id="boost-timer">10с</span>
+      </div>
+
+      <div class="arena">
+        <div class="char char-standing" id="char-standing">
+          <canvas id="canvas-standing"></canvas>
+          <div class="shadow"></div>
+        </div>
+        <div class="char char-approaching" id="char-approaching">
+          <canvas id="canvas-approaching"></canvas>
+          <div class="shadow"></div>
+        </div>
+        <div class="meet-flash" id="meet-flash" hidden></div>
+      </div>
+
+      <div class="streak-layer" id="streak-layer" aria-hidden="true"></div>
+
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span>Сближение</span>
+          <span id="distance-pct">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <p class="hint" id="hint">Тапай по экрану — подойди ближе и получи CUM</p>
+      </div>
+
+      <div id="float-layer" class="float-layer"></div>
+      <div class="tap-ripple-layer" id="ripple-layer"></div>
+    </main>
+
+    <nav class="dock">
+      <button class="dock-btn" data-panel="upgrades" type="button">
+        <span class="dock-icon">⬆</span>
+        <span>Апгрейды</span>
+      </button>
+      <button class="dock-btn" data-panel="boosts" type="button">
+        <span class="dock-icon">⚡</span>
+        <span>Бусты</span>
+      </button>
+      <button class="dock-btn" data-panel="prestige" type="button">
+        <span class="dock-icon">★</span>
+        <span>Престиж</span>
+      </button>
+    </nav>
+
+    <aside class="panel" id="panel" aria-hidden="true">
+      <div class="panel-handle"></div>
+      <div class="panel-section" data-section="upgrades">
+        <h2>Апгрейды</h2>
+        <div class="shop" id="shop-upgrades"></div>
+      </div>
+      <div class="panel-section" data-section="boosts" hidden>
+        <h2>Временные бусты</h2>
+        <div class="shop" id="shop-boosts"></div>
+      </div>
+      <div class="panel-section" data-section="prestige" hidden>
+        <h2>Престиж</h2>
+        <p class="prestige-info">
+          Сбрось прогресс и получи <strong>постоянный множитель</strong>.
+          Доступно с <strong id="prestige-req">1000</strong> CUM заработанных за жизнь.
+        </p>
+        <div class="prestige-card">
+          <div>
+            <span class="stat-label">Всего заработано</span>
+            <div id="lifetime" class="stat-value big">0</div>
+          </div>
+          <div>
+            <span class="stat-label">Уровень престижа</span>
+            <div id="prestige-level" class="stat-value big">0</div>
+          </div>
+          <div>
+            <span class="stat-label">Бонус престижа</span>
+            <div id="prestige-bonus" class="stat-value big">×1.00</div>
+          </div>
+        </div>
+        <button type="button" class="prestige-btn" id="prestige-btn" disabled>
+          Престиж (+×0.25)
+        </button>
+      </div>
+    </aside>
+
+    <div class="toast" id="toast" hidden></div>
+  </div>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="telegram.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

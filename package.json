@@ -1,0 +1,15 @@
+{
+  "name": "cum-tap-telegram-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Telegram bot that opens CUM Tap Mini App",
+  "main": "bot/bot.js",
+  "scripts": {
+    "bot": "node bot/bot.js",
+    "start": "node bot/bot.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "node-telegram-bot-api": "^0.66.0"
+  }
+}
