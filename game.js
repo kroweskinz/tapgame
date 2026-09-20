@@ -900,6 +900,23 @@
     });
     shopDirty = true;
     updateHUD();
+    if (name === "leaderboard") {
+      syncLeaderboard(true);
+    }
+  }
+
+  function leaderboardStats() {
+    return {
+      lifetime: state.lifetime,
+      level: state.playerLevel,
+      prestige: state.prestige,
+    };
+  }
+
+  async function syncLeaderboard(forceRefresh) {
+    if (!window.CumLeaderboard) return;
+    await window.CumLeaderboard.submit(leaderboardStats());
+    if (forceRefresh) await window.CumLeaderboard.refresh();
   }
 
   document.querySelectorAll(".dock-btn[data-panel]").forEach((btn) => {
@@ -959,9 +976,25 @@
           showToast(`Донат получен! +${formatNum(cum)} CUM`);
           updateHUD();
           save();
+          syncLeaderboard(false);
         },
       });
     }
+
+    const lbRefresh = document.getElementById("leaderboard-refresh");
+    if (lbRefresh) {
+      lbRefresh.addEventListener("pointerup", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        syncLeaderboard(true);
+      });
+    }
+
+    // Periodic score sync for Telegram users
+    setInterval(() => {
+      syncLeaderboard(false);
+    }, 45000);
+    setTimeout(() => syncLeaderboard(false), 2500);
 
     el.prestigeReq.textContent = formatNum(PRESTIGE_REQ);
     updateMuteBtn();

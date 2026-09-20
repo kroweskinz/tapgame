@@ -49,6 +49,25 @@ npm run bot
 - `sfx-tap.mp3` — тап
 - `sfx-meet.mp3` — встреча на 100%
 
+## Лидерборд (Telegram)
+
+В игре вкладка **Топ**. Очки = lifetime CUM + уровень×500 + престиж×5000.
+
+1. Задеплой бота с API на HTTPS (Render / Railway / VPS):
+   ```bash
+   npm install
+   npm start
+   ```
+2. В `payment-config.js` укажи:
+   ```js
+   leaderboardApi: "https://твой-бот-хост"
+   ```
+3. Открой Mini App из Telegram — прогресс уходит в топ автоматически.
+4. В боте команда `/top` — краткий топ-10.
+
+Без `leaderboardApi` вкладка покажет подсказку по подключению.
+
+
 ## Донат (Т‑Банк / Сбер)
 
 В игре кнопка **Донат**:

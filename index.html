@@ -108,6 +108,10 @@
         <span class="dock-icon">⚡</span>
         <span>Бусты</span>
       </button>
+      <button class="dock-btn" data-panel="leaderboard" type="button">
+        <span class="dock-icon">🏆</span>
+        <span>Топ</span>
+      </button>
       <button class="dock-btn" data-panel="prestige" type="button">
         <span class="dock-icon">★</span>
         <span>Престиж</span>
@@ -127,6 +131,14 @@
       <div class="panel-section" data-section="boosts" hidden>
         <h2>Временные бусты</h2>
         <div class="shop" id="shop-boosts"></div>
+      </div>
+      <div class="panel-section" data-section="leaderboard" hidden>
+        <h2>Топ игроков</h2>
+        <p class="lb-meta" id="leaderboard-meta"></p>
+        <div class="leaderboard-list" id="leaderboard-list">
+          <p class="lb-empty">Открой вкладку, чтобы загрузить топ</p>
+        </div>
+        <button type="button" class="lb-refresh" id="leaderboard-refresh">Обновить</button>
       </div>
       <div class="panel-section" data-section="prestige" hidden>
         <h2>Престиж</h2>
@@ -171,6 +183,7 @@
   <script src="payment-config.js"></script>
   <script src="telegram.js"></script>
   <script src="donate.js"></script>
+  <script src="leaderboard.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
